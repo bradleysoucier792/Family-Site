@@ -73,6 +73,12 @@ input, select {
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
 }
 input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+input[type="checkbox"] {
+  width: 18px; height: 18px; flex: 0 0 auto;
+  padding: 0; margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
 .stack { display: flex; flex-direction: column; }
 .row-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .row-form input[type="text"] { flex: 1 1 200px; }
@@ -132,7 +138,7 @@ h2 { font-size: 20px; margin: 0 0 4px; }
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); margin-bottom: 8px;
 }
-.item input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--accent); }
+.item input[type="checkbox"] { flex: 0 0 auto; }
 .item .grow { flex: 1; min-width: 0; }
 .item .title { overflow: hidden; text-overflow: ellipsis; }
 .item.done .title { text-decoration: line-through; color: var(--muted); }
@@ -181,6 +187,13 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 .settings-row code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
+}
+.checkbox-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
 }
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
@@ -776,8 +789,6 @@ async function copy(text, label) {
     toast(`${label} copied`);
     return;
   } catch {}
-  // Fallback: modal with the text pre-selected so users on locked-down
-  // browsers can still manually copy it.
   await promptModal({
     title: `Copy ${label.toLowerCase()}`,
     message: "Auto-copy isn't available here. Select the text and copy manually.",
@@ -897,7 +908,9 @@ async function createFamily(familyName, displayName) {
   });
   await setDoc(doc(db, "families", fid, "members", uid), {
     displayName, email: state.user.email || "",
-    role: "admin", color: pickColor(), joinedAt: serverTimestamp()
+    role: "admin", color: pickColor(),
+    hideEmail: false,
+    joinedAt: serverTimestamp()
   });
   await setDoc(doc(db, "users", uid), { familyId: fid, displayName });
   return fid;
@@ -912,6 +925,7 @@ async function joinFamily(code, displayName) {
   await setDoc(doc(db, "families", familyId, "members", uid), {
     displayName, email: state.user.email || "",
     role: "adult", color: pickColor(),
+    hideEmail: false,
     inviteCode: code,
     joinedAt: serverTimestamp()
   });
@@ -1524,6 +1538,9 @@ function renderMembers() {
     const isMe = m.uid === state.user.uid;
     const isOwner = m.uid === ownerUid;
     const canEditRole = iAmAdmin && !isMe && !isOwner;
+    // Email shows unless the member opted to hide it.
+    // `hideEmail === true` hides; anything else (false / missing) shows.
+    const showEmail = m.email && m.hideEmail !== true;
 
     let controls;
     if (canEditRole) {
@@ -1545,7 +1562,7 @@ function renderMembers() {
         <div class="avatar" style="background:${m.color || "#4f8cff"}">${esc(initials(m.displayName))}</div>
         <div class="grow">
           <div>${esc(m.displayName)}${isMe ? " <span class='muted tiny'>(you)</span>" : ""}</div>
-          <div class="meta muted tiny">${esc(m.email || "")}</div>
+          ${showEmail ? `<div class="meta muted tiny">${esc(m.email)}</div>` : ""}
         </div>
         ${controls}
       </div>`;
@@ -1640,7 +1657,7 @@ $("#member-list").addEventListener("click", (e) => {
 
 $("#btn-leave").onclick = () => leaveFamily();
 
-/* ── profile edit (nickname + color) ─────────────────── */
+/* ── profile edit (nickname + color + email visibility) ─ */
 async function editProfile() {
   let selectedColor = state.member.color || "#4f8cff";
 
@@ -1662,15 +1679,20 @@ async function editProfile() {
         `).join("")}
       </div>
     </div>
-    <p class="muted tiny" style="margin-top:12px;">${esc(state.user.email || "")}</p>
+    <label class="checkbox-row" style="margin-top:14px;">
+      <input type="checkbox" id="__profile-hide-email" ${state.member.hideEmail === true ? "checked" : ""}>
+      <span>Hide my email from other members</span>
+    </label>
+    <p class="muted tiny" style="margin-top:2px;margin-left:28px;">${esc(state.user.email || "")}</p>
     <div class="modal-actions">
       <button class="btn" data-act="cancel">Cancel</button>
       <button class="btn btn-primary" data-act="save">Save</button>
     </div>
   `, {
     onMount(backdrop, close) {
-      const input = backdrop.querySelector("#__profile-name");
-      requestAnimationFrame(() => { input.focus(); input.select(); });
+      const nameInput = backdrop.querySelector("#__profile-name");
+      const hideEmailInput = backdrop.querySelector("#__profile-hide-email");
+      requestAnimationFrame(() => { nameInput.focus(); nameInput.select(); });
 
       backdrop.querySelectorAll(".color-swatch").forEach(sw => {
         sw.addEventListener("click", () => {
@@ -1681,12 +1703,16 @@ async function editProfile() {
       });
 
       const commit = () => {
-        const name = input.value.trim();
-        if (!name) { input.focus(); return; }
-        close({ displayName: name, color: selectedColor });
+        const name = nameInput.value.trim();
+        if (!name) { nameInput.focus(); return; }
+        close({
+          displayName: name,
+          color: selectedColor,
+          hideEmail: hideEmailInput.checked
+        });
       };
 
-      input.addEventListener("keydown", (e) => {
+      nameInput.addEventListener("keydown", (e) => {
         if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); commit(); }
       });
 
@@ -1704,9 +1730,15 @@ async function editProfile() {
   try {
     await updateDoc(doc(db, "families", state.familyId, "members", state.user.uid), {
       displayName: result.displayName,
-      color: result.color
+      color: result.color,
+      hideEmail: result.hideEmail
     });
-    state.member = { ...state.member, displayName: result.displayName, color: result.color };
+    state.member = {
+      ...state.member,
+      displayName: result.displayName,
+      color: result.color,
+      hideEmail: result.hideEmail
+    };
     renderShell();
     renderMembers();
     renderMessages();
@@ -1751,7 +1783,6 @@ async function renameFamily() {
 
   try {
     await updateDoc(doc(db, "families", state.familyId), { name: trimmed });
-    // Listener will update state and re-render.
     toast("Family renamed");
   } catch (err) {
     console.error("renameFamily:", err);
@@ -1780,7 +1811,7 @@ async function transferOwnership() {
           <div class="avatar" style="background:${m.color || "#4f8cff"}">${esc(initials(m.displayName))}</div>
           <div class="grow">
             <div>${esc(m.displayName)}</div>
-            <div class="muted tiny">${esc(m.email || "")}</div>
+            ${m.email && m.hideEmail !== true ? `<div class="muted tiny">${esc(m.email)}</div>` : ""}
           </div>
         </button>
       `).join("")}
@@ -1824,8 +1855,6 @@ async function transferOwnership() {
       const memberSnap = await tx.get(newOwnerRef);
       if (!memberSnap.exists()) throw new Error("Member not found");
 
-      // Promote the new owner to admin (idempotent if already admin) and
-      // swap the ownerUid on the family doc. Atomic.
       tx.update(newOwnerRef, { role: "admin" });
       tx.update(familyRef, { ownerUid: pickedUid });
     });
@@ -1840,7 +1869,6 @@ $("#btn-transfer").onclick = () => transferOwnership();
 
 /* ── export ──────────────────────────────────────────── */
 function stripForExport(obj) {
-  // Replace Firestore Timestamps with ISO strings so JSON is human-readable.
   return JSON.parse(JSON.stringify(obj, (key, value) => {
     if (value && typeof value === "object" && typeof value.toDate === "function") {
       return value.toDate().toISOString();
