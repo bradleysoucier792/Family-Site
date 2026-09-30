@@ -93,7 +93,20 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .avatar {
   width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
   font-weight: 600; font-size: 14px; color: #fff;
+  transition: filter .15s;
 }
+#me-avatar { cursor: pointer; position: relative; overflow: hidden; }
+#me-avatar:hover { filter: brightness(1.15); }
+#me-avatar::after {
+  content: "✎";
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  display: grid; place-items: center;
+  font-size: 12px;
+  opacity: 0; transition: opacity .15s;
+}
+#me-avatar:hover::after { opacity: 1; }
 .nav {
   display: flex; gap: 4px; padding: 10px 16px; overflow-x: auto;
   border-bottom: 1px solid var(--border); background: var(--surface);
@@ -158,12 +171,79 @@ h2 { font-size: 20px; margin: 0 0 4px; }
   cursor: pointer; font-size: 18px; padding: 0 4px;
 }
 .member-row .del:hover { color: var(--danger); }
+.settings-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: 0; }
+.settings-row .grow { flex: 1; min-width: 0; }
+.settings-row code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   background: var(--text); color: var(--bg); padding: 9px 16px;
-  border-radius: 999px; font-size: 14px; z-index: 100;
+  border-radius: 999px; font-size: 14px; z-index: 300;
+  max-width: calc(100vw - 32px);
+  text-align: center;
 }
+/* modal */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.6);
+  display: grid; place-items: center;
+  padding: 20px; z-index: 200;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: fadeIn .15s ease;
+  overflow-y: auto;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  max-width: 420px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.4);
+  animation: slideUp .18s ease;
+  margin: auto;
+}
+.modal h3 { margin: 0 0 10px; font-size: 16px; }
+.modal p { margin: 0 0 12px; }
+.modal .modal-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 320px; overflow-y: auto;
+  margin: 10px -6px;
+  padding: 0 6px;
+}
+.modal-list-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; border-radius: 10px;
+  background: var(--surface-2); border: 1px solid var(--border);
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+  width: 100%;
+  transition: border-color .12s, filter .15s;
+}
+.modal-list-item:hover { border-color: var(--accent); filter: brightness(1.08); }
+.modal-list-item .grow { flex: 1; min-width: 0; }
+.modal .modal-actions {
+  display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;
+  flex-wrap: wrap;
+}
+.color-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.color-swatch {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+  transition: transform .1s;
+}
+.color-swatch:hover { transform: scale(1.1); }
+.color-swatch.selected { border-color: var(--text); }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes slideUp { from { transform: translateY(10px); opacity: 0; } }
+/* calendar */
 .cal-nav { display: flex; gap: 4px; }
 .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 16px 0 20px; }
 .cal-dow {
@@ -298,7 +378,7 @@ h2 { font-size: 20px; margin: 0 0 4px; }
     </div>
     <div class="topbar-right">
       <button id="btn-theme" class="btn btn-icon" title="Toggle theme">🌙</button>
-      <div class="avatar" id="me-avatar" title=""></div>
+      <div class="avatar" id="me-avatar" title="Edit your profile"></div>
       <button id="btn-signout" class="btn btn-icon" title="Sign out">⎋</button>
     </div>
   </header>
@@ -446,6 +526,41 @@ h2 { font-size: 20px; margin: 0 0 4px; }
         <div id="member-list"></div>
       </div>
 
+      <div class="card" id="settings-card">
+        <h3>Household settings</h3>
+
+        <div class="settings-row" id="row-rename">
+          <div class="grow">
+            <div>Family name</div>
+            <div class="muted tiny" id="settings-family-name">—</div>
+          </div>
+          <button id="btn-rename-family" class="btn btn-sm">Rename</button>
+        </div>
+
+        <div class="settings-row hidden" id="row-transfer">
+          <div class="grow">
+            <div>Transfer ownership</div>
+            <div class="muted tiny">Make another member the owner</div>
+          </div>
+          <button id="btn-transfer" class="btn btn-sm">Transfer</button>
+        </div>
+
+        <div class="settings-row">
+          <div class="grow">
+            <div>Export data</div>
+            <div class="muted tiny">Download everything as JSON</div>
+          </div>
+          <button id="btn-export" class="btn btn-sm">Export</button>
+        </div>
+
+        <div class="settings-row">
+          <div class="grow">
+            <div>Family ID</div>
+            <div class="muted tiny"><code id="settings-family-id">—</code></div>
+          </div>
+        </div>
+      </div>
+
       <div class="card" id="leave-card">
         <h3>Leave this family</h3>
         <p class="muted tiny">
@@ -575,9 +690,99 @@ function toast(msg) {
   toastTimer = setTimeout(() => el.classList.add("hidden"), 2400);
 }
 
+/* ── modal system (replaces confirm/prompt/alert) ────── */
+function openModal(html, { onMount } = {}) {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    backdrop.innerHTML = `<div class="modal" role="dialog" aria-modal="true">${html}</div>`;
+    document.body.appendChild(backdrop);
+
+    const close = (val) => {
+      backdrop.remove();
+      document.removeEventListener("keydown", onKey, true);
+      resolve(val);
+    };
+
+    const onKey = (e) => {
+      if (e.key === "Escape") { e.stopPropagation(); close(null); }
+    };
+    document.addEventListener("keydown", onKey, true);
+
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop) return close(null);
+    });
+
+    if (onMount) onMount(backdrop, close);
+  });
+}
+
+async function confirmModal({ title, message, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = false }) {
+  const res = await openModal(`
+    <h3>${esc(title)}</h3>
+    ${message ? `<p>${esc(message)}</p>` : ""}
+    <div class="modal-actions">
+      <button class="btn" data-act="cancel">${esc(cancelLabel)}</button>
+      <button class="btn ${danger ? "btn-danger" : "btn-primary"}" data-act="ok">${esc(confirmLabel)}</button>
+    </div>
+  `, {
+    onMount(backdrop, close) {
+      backdrop.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-act]");
+        if (!btn) return;
+        close(btn.dataset.act === "ok");
+      });
+    }
+  });
+  return res === true;
+}
+
+async function promptModal({ title, message, value = "", placeholder = "", maxlength }) {
+  const res = await openModal(`
+    <h3>${esc(title)}</h3>
+    ${message ? `<p class="muted">${esc(message)}</p>` : ""}
+    <input id="__modal-input" type="text" value="${esc(value)}" placeholder="${esc(placeholder)}" ${maxlength ? `maxlength="${maxlength}"` : ""}>
+    <div class="modal-actions">
+      <button class="btn" data-act="cancel">Cancel</button>
+      <button class="btn btn-primary" data-act="ok">OK</button>
+    </div>
+  `, {
+    onMount(backdrop, close) {
+      const input = backdrop.querySelector("#__modal-input");
+      requestAnimationFrame(() => { input.focus(); input.select(); });
+
+      const onEnter = (e) => {
+        if (e.key === "Enter" && e.target === input) {
+          e.preventDefault();
+          e.stopPropagation();
+          close(input.value);
+        }
+      };
+      input.addEventListener("keydown", onEnter);
+
+      backdrop.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-act]");
+        if (!btn) return;
+        close(btn.dataset.act === "ok" ? input.value : null);
+      });
+    }
+  });
+  return res;
+}
+
 async function copy(text, label) {
-  try { await navigator.clipboard.writeText(text); toast(`${label} copied`); }
-  catch { prompt("Copy this:", text); }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(`${label} copied`);
+    return;
+  } catch {}
+  // Fallback: modal with the text pre-selected so users on locked-down
+  // browsers can still manually copy it.
+  await promptModal({
+    title: `Copy ${label.toLowerCase()}`,
+    message: "Auto-copy isn't available here. Select the text and copy manually.",
+    value: text
+  });
 }
 
 /* ── state ───────────────────────────────────────────── */
@@ -763,11 +968,8 @@ async function enterFamily(fid) {
     console.warn("enterFamily read failed:", err);
 
     if (err?.code === "permission-denied") {
-      // Almost always: we were removed from the family. The family doc
-      // rule requires membership, so a removed user can't read it.
       await bootToOnboarding("You're no longer a member of that family.");
     } else {
-      // Transient (offline, etc.). Don't clear familyId so a refresh retries.
       state.familyId = state.family = state.member = null;
       showError("#ob-error", "Couldn't load your family. Reload to try again.");
       show("onboarding");
@@ -800,15 +1002,15 @@ function subscribe(fid) {
   unsubs.push(onSnapshot(famDoc, (snap) => {
     if (!snap.exists()) return;
     state.family = { id: fid, ...snap.data() };
+    $("#family-name").textContent = state.family.name;
     renderInviteCode();
     renderMembers();
+    renderSettings();
   }, (e) => console.error("family:", e)));
 
   unsubs.push(onSnapshot(collection(famDoc, "members"), (snap) => {
     state.members = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
 
-    // If we've seen a stable snapshot before and we're no longer in the
-    // list, an admin removed us. Boot to onboarding.
     if (seenMembersOnce && state.user &&
         !state.members.some((m) => m.uid === state.user.uid)) {
       kickedOut();
@@ -816,13 +1018,13 @@ function subscribe(fid) {
     }
     seenMembersOnce = true;
 
-    // Refresh our own member record from the list (in case role changed).
     const me = state.members.find((m) => m.uid === state.user?.uid);
     if (me) state.member = { ...state.member, ...me };
 
     renderMembers(); renderStats(); renderFamilySub();
     renderTaskAssigneeOptions(); renderMealCookOptions();
     renderCalendar(); renderMeals(); renderMessages();
+    renderSettings();
   }, (e) => console.error("members:", e)));
 
   unsubs.push(onSnapshot(
@@ -872,7 +1074,7 @@ function renderShell() {
   const av = $("#me-avatar");
   av.textContent = initials(state.member.displayName);
   av.style.background = state.member.color || "#4f8cff";
-  av.title = `${state.member.displayName} (${state.member.role || "member"})`;
+  av.title = `Edit profile — ${state.member.displayName}`;
 
   const now = new Date();
   const h = now.getHours();
@@ -884,6 +1086,7 @@ function renderShell() {
 
   renderInviteCode();
   renderMembers();
+  renderSettings();
 }
 
 function renderFamilySub() {
@@ -1377,7 +1580,13 @@ async function removeMember(uid) {
   if (uid === state.user.uid) return toast("Use 'Leave family' to remove yourself");
 
   const name = memberName(uid);
-  if (!confirm(`Remove ${name} from the family? They'll need a new invite to rejoin.`)) return;
+  const ok = await confirmModal({
+    title: "Remove member",
+    message: `Remove ${name} from the family? They'll need a new invite to rejoin. Their existing posts and items will stay but show as "Someone".`,
+    confirmLabel: "Remove",
+    danger: true
+  });
+  if (!ok) return;
 
   try {
     await deleteDoc(doc(db, "families", state.familyId, "members", uid));
@@ -1390,9 +1599,15 @@ async function removeMember(uid) {
 
 async function leaveFamily() {
   if (state.family?.ownerUid === state.user.uid) {
-    return toast("The owner can't leave the family");
+    return toast("The owner can't leave. Transfer ownership first.");
   }
-  if (!confirm("Leave this family? You'll need a new invite to rejoin.")) return;
+  const ok = await confirmModal({
+    title: "Leave family",
+    message: "Leave this family? You'll need a new invite to rejoin. Your existing posts will stay but show as \"Someone\".",
+    confirmLabel: "Leave",
+    danger: true
+  });
+  if (!ok) return;
 
   try {
     await deleteDoc(doc(db, "families", state.familyId, "members", state.user.uid));
@@ -1425,116 +1640,115 @@ $("#member-list").addEventListener("click", (e) => {
 
 $("#btn-leave").onclick = () => leaveFamily();
 
-/* ── invites ─────────────────────────────────────────── */
-function renderInviteCode() {
-  const el = $("#invite-code");
-  const isAdmin = state.member?.role === "admin";
+/* ── profile edit (nickname + color) ─────────────────── */
+async function editProfile() {
+  let selectedColor = state.member.color || "#4f8cff";
 
-  if (!isAdmin) {
-    el.textContent = "admin only";
-    $("#btn-new-invite").disabled = true;
-    $("#btn-revoke").disabled = true;
-    return;
-  }
+  const result = await openModal(`
+    <h3>Your profile</h3>
+    <label class="field">
+      <span>Display name</span>
+      <input id="__profile-name" type="text" maxlength="40" value="${esc(state.member.displayName)}">
+    </label>
+    <div class="field">
+      <span>Color</span>
+      <div class="color-row">
+        ${COLORS.map(c => `
+          <button type="button"
+                  class="color-swatch ${c === selectedColor ? "selected" : ""}"
+                  data-color="${c}"
+                  style="background:${c}"
+                  aria-label="Pick color"></button>
+        `).join("")}
+      </div>
+    </div>
+    <p class="muted tiny" style="margin-top:12px;">${esc(state.user.email || "")}</p>
+    <div class="modal-actions">
+      <button class="btn" data-act="cancel">Cancel</button>
+      <button class="btn btn-primary" data-act="save">Save</button>
+    </div>
+  `, {
+    onMount(backdrop, close) {
+      const input = backdrop.querySelector("#__profile-name");
+      requestAnimationFrame(() => { input.focus(); input.select(); });
 
-  $("#btn-new-invite").disabled = state.inviteBusy;
-  const active = state.family?.activeInviteCode || null;
-  el.textContent = active || "—";
-  $("#btn-revoke").disabled = !active || state.inviteBusy;
-}
-
-async function newInvite() {
-  if (state.member?.role !== "admin") return;
-  if (state.inviteBusy) return;
-
-  const code = makeCode();
-  const familyRef = doc(db, "families", state.familyId);
-
-  state.inviteBusy = true;
-  renderInviteCode();
-
-  try {
-    await runTransaction(db, async (tx) => {
-      const famSnap = await tx.get(familyRef);
-      if (!famSnap.exists()) throw new Error("Family not found");
-
-      const oldCode = famSnap.data().activeInviteCode;
-      if (oldCode && oldCode !== code) {
-        tx.delete(doc(db, "invites", oldCode));
-      }
-      tx.set(doc(db, "invites", code), {
-        familyId: state.familyId,
-        createdBy: state.user.uid,
-        createdAt: serverTimestamp()
+      backdrop.querySelectorAll(".color-swatch").forEach(sw => {
+        sw.addEventListener("click", () => {
+          selectedColor = sw.dataset.color;
+          backdrop.querySelectorAll(".color-swatch").forEach(s =>
+            s.classList.toggle("selected", s === sw));
+        });
       });
-      tx.update(familyRef, { activeInviteCode: code });
-    });
 
-    if (state.family) state.family.activeInviteCode = code;
-    $("#invite-code").textContent = code;
-    toast("New invite code created");
-  } catch (err) {
-    console.error("newInvite:", err);
-    toast("Failed: " + (err?.message || "unknown error"));
-  } finally {
-    state.inviteBusy = false;
-    renderInviteCode();
-  }
-}
+      const commit = () => {
+        const name = input.value.trim();
+        if (!name) { input.focus(); return; }
+        close({ displayName: name, color: selectedColor });
+      };
 
-async function revokeInvite() {
-  if (state.member?.role !== "admin") return;
-  if (state.inviteBusy) return;
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); commit(); }
+      });
 
-  const familyRef = doc(db, "families", state.familyId);
-  state.inviteBusy = true;
-  renderInviteCode();
+      backdrop.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-act]");
+        if (!btn) return;
+        if (btn.dataset.act === "save") commit();
+        else close(null);
+      });
+    }
+  });
+
+  if (!result) return;
 
   try {
-    await runTransaction(db, async (tx) => {
-      const famSnap = await tx.get(familyRef);
-      if (!famSnap.exists()) throw new Error("Family not found");
-
-      const active = famSnap.data().activeInviteCode;
-      if (active) tx.delete(doc(db, "invites", active));
-      tx.update(familyRef, { activeInviteCode: null });
+    await updateDoc(doc(db, "families", state.familyId, "members", state.user.uid), {
+      displayName: result.displayName,
+      color: result.color
     });
-
-    if (state.family) state.family.activeInviteCode = null;
-    $("#invite-code").textContent = "—";
-    toast("Invite revoked");
+    state.member = { ...state.member, displayName: result.displayName, color: result.color };
+    renderShell();
+    renderMembers();
+    renderMessages();
+    renderTasks();
+    renderShopping();
+    toast("Profile updated");
   } catch (err) {
-    console.error("revokeInvite:", err);
+    console.error("editProfile:", err);
     toast("Failed: " + (err?.message || "unknown error"));
-  } finally {
-    state.inviteBusy = false;
-    renderInviteCode();
   }
 }
 
-$("#btn-new-invite").onclick = () => newInvite();
-$("#btn-revoke").onclick = () => revokeInvite();
+$("#me-avatar").onclick = () => editProfile();
 
-$("#btn-copy-code").onclick = () => {
-  const c = $("#invite-code").textContent;
-  if (c && c !== "—" && c !== "admin only") copy(c, "Code");
-  else toast("Generate a code first");
-};
+/* ── household settings ──────────────────────────────── */
+function renderSettings() {
+  if (!state.family) return;
 
-$("#btn-copy-link").onclick = () => {
-  const c = $("#invite-code").textContent;
-  if (!c || c === "—" || c === "admin only") return toast("Generate a code first");
-  copy(`${location.origin}${location.pathname}?join=${c}`, "Invite link");
-};
+  $("#settings-family-name").textContent = state.family.name;
+  $("#settings-family-id").textContent = state.familyId;
 
-/* ── nav ─────────────────────────────────────────────── */
-$$(".nav-btn").forEach((btn) => {
-  btn.onclick = () => {
-    state.view = btn.dataset.view;
-    $$(".nav-btn").forEach((b) => b.classList.toggle("active", b === btn));
-    $$(".view").forEach((v) => v.classList.toggle("hidden", v.dataset.view !== state.view));
-  };
-});
-</script>
-</body>
-</html>
+  const iAmAdmin = state.member?.role === "admin";
+  const iAmOwner = state.family.ownerUid === state.user.uid;
+  const hasOtherMembers = state.members.some(m => m.uid !== state.user.uid);
+
+  $("#row-rename").classList.toggle("hidden", !iAmAdmin);
+  $("#row-transfer").classList.toggle("hidden", !(iAmOwner && hasOtherMembers));
+}
+
+async function renameFamily() {
+  if (state.member?.role !== "admin") return toast("Only admins can rename");
+
+  const name = await promptModal({
+    title: "Rename family",
+    message: "What should your family be called?",
+    value: state.family.name,
+    maxlength: 60
+  });
+  if (name === null) return;
+  const trimmed = name.trim();
+  if (!trimmed || trimmed === state.family.name) return;
+
+  try {
+    await updateDoc(doc(db, "families", state.familyId), { name: trimmed });
+    // Listener will update state and
