@@ -759,15 +759,14 @@ async function enterFamily(fid) {
 /* ── live subscriptions ──────────────────────────────────
    NOTE: `doc(db, "families", fid)` is a DocumentReference.
    Passing that into `collection(...)` yields a valid 3-segment
-   path: families/{fid}/<sub>. Passing a CollectionReference
-   (as before) produced a 4-segment path → FirebaseError.
+   path: families/{fid}/<sub>.
    ──────────────────────────────────────────────────────── */
 function subscribe(fid) {
   const famDoc = doc(db, "families", fid);
 
   unsubs.push(onSnapshot(collection(famDoc, "members"), (snap) => {
     state.members = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
-    renderMembers(); renderStats();
+    renderMembers(); renderStats(); renderFamilySub();
     renderTaskAssigneeOptions(); renderMealCookOptions();
     renderCalendar(); renderMeals(); renderMessages();
   }, (e) => console.error("members:", e)));
@@ -807,8 +806,7 @@ function subscribe(fid) {
 /* ── shell / stats ───────────────────────────────────── */
 function renderShell() {
   $("#family-name").textContent = state.family.name;
-  const n = state.members.length || 1;
-  $("#family-sub").textContent = `${n} member${n === 1 ? "" : "s"}`;
+  renderFamilySub();
 
   const av = $("#me-avatar");
   av.textContent = initials(state.member.displayName);
@@ -824,6 +822,11 @@ function renderShell() {
   });
 
   renderInviteCode();
+}
+
+function renderFamilySub() {
+  const n = state.members.length;
+  $("#family-sub").textContent = n ? `${n} member${n === 1 ? "" : "s"}` : "";
 }
 
 function renderStats() {
@@ -1300,13 +1303,6 @@ $$(".nav-btn").forEach((btn) => {
     $$(".view").forEach((v) => v.classList.toggle("hidden", v.dataset.view !== state.view));
   };
 });
-
-/* ── PWA service worker (optional) ───────────────────── */
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch((e) => console.warn("SW:", e));
-  });
-}
 </script>
 </body>
 </html>
