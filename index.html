@@ -1751,4 +1751,251 @@ async function renameFamily() {
 
   try {
     await updateDoc(doc(db, "families", state.familyId), { name: trimmed });
-    // Listener will update state and
+    // Listener will update state and re-render.
+    toast("Family renamed");
+  } catch (err) {
+    console.error("renameFamily:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+  }
+}
+
+$("#btn-rename-family").onclick = () => renameFamily();
+
+/* ── ownership transfer ──────────────────────────────── */
+async function transferOwnership() {
+  if (state.family.ownerUid !== state.user.uid) return toast("Only the owner can transfer");
+
+  const candidates = state.members.filter(m => m.uid !== state.user.uid);
+  if (!candidates.length) return toast("No other members to transfer to");
+
+  const pickedUid = await openModal(`
+    <h3>Transfer ownership</h3>
+    <p class="muted tiny">
+      Pick who becomes the new owner. You'll stay an admin, but you won't be
+      able to remove them or change their role afterward.
+    </p>
+    <div class="modal-list">
+      ${candidates.map(m => `
+        <button class="modal-list-item" data-uid="${m.uid}">
+          <div class="avatar" style="background:${m.color || "#4f8cff"}">${esc(initials(m.displayName))}</div>
+          <div class="grow">
+            <div>${esc(m.displayName)}</div>
+            <div class="muted tiny">${esc(m.email || "")}</div>
+          </div>
+        </button>
+      `).join("")}
+    </div>
+    <div class="modal-actions">
+      <button class="btn" data-act="cancel">Cancel</button>
+    </div>
+  `, {
+    onMount(backdrop, close) {
+      backdrop.addEventListener("click", (e) => {
+        if (e.target.closest("button[data-act='cancel']")) return close(null);
+        const item = e.target.closest("button[data-uid]");
+        if (item) close(item.dataset.uid);
+      });
+    }
+  });
+
+  if (!pickedUid) return;
+  const target = state.members.find(m => m.uid === pickedUid);
+  if (!target) return;
+
+  const ok = await confirmModal({
+    title: "Transfer ownership",
+    message: `Make ${target.displayName} the owner of this family? You'll stay an admin, but you won't be able to remove them or change their role afterward.`,
+    confirmLabel: "Transfer",
+    danger: true
+  });
+  if (!ok) return;
+
+  const familyRef = doc(db, "families", state.familyId);
+  const newOwnerRef = doc(db, "families", state.familyId, "members", pickedUid);
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const famSnap = await tx.get(familyRef);
+      if (!famSnap.exists()) throw new Error("Family not found");
+      if (famSnap.data().ownerUid !== state.user.uid) {
+        throw new Error("You're no longer the owner");
+      }
+
+      const memberSnap = await tx.get(newOwnerRef);
+      if (!memberSnap.exists()) throw new Error("Member not found");
+
+      // Promote the new owner to admin (idempotent if already admin) and
+      // swap the ownerUid on the family doc. Atomic.
+      tx.update(newOwnerRef, { role: "admin" });
+      tx.update(familyRef, { ownerUid: pickedUid });
+    });
+    toast(`Ownership transferred to ${target.displayName}`);
+  } catch (err) {
+    console.error("transferOwnership:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+  }
+}
+
+$("#btn-transfer").onclick = () => transferOwnership();
+
+/* ── export ──────────────────────────────────────────── */
+function stripForExport(obj) {
+  // Replace Firestore Timestamps with ISO strings so JSON is human-readable.
+  return JSON.parse(JSON.stringify(obj, (key, value) => {
+    if (value && typeof value === "object" && typeof value.toDate === "function") {
+      return value.toDate().toISOString();
+    }
+    return value;
+  }));
+}
+
+function exportData() {
+  try {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      familyId: state.familyId,
+      family: stripForExport(state.family),
+      members: stripForExport(state.members),
+      shoppingItems: stripForExport(state.shopping),
+      tasks: stripForExport(state.tasks),
+      events: stripForExport(state.events),
+      meals: stripForExport(state.meals),
+      messages: stripForExport(state.messages)
+    };
+
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const safeName = (state.family.name || "family")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "family";
+    a.href = url;
+    a.download = `${safeName}-export-${todayYmd()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    toast("Exported");
+  } catch (err) {
+    console.error("exportData:", err);
+    toast("Export failed: " + (err?.message || "unknown error"));
+  }
+}
+
+$("#btn-export").onclick = () => exportData();
+
+/* ── invites ─────────────────────────────────────────── */
+function renderInviteCode() {
+  const el = $("#invite-code");
+  const isAdmin = state.member?.role === "admin";
+
+  if (!isAdmin) {
+    el.textContent = "admin only";
+    $("#btn-new-invite").disabled = true;
+    $("#btn-revoke").disabled = true;
+    return;
+  }
+
+  $("#btn-new-invite").disabled = state.inviteBusy;
+  const active = state.family?.activeInviteCode || null;
+  el.textContent = active || "—";
+  $("#btn-revoke").disabled = !active || state.inviteBusy;
+}
+
+async function newInvite() {
+  if (state.member?.role !== "admin") return;
+  if (state.inviteBusy) return;
+
+  const code = makeCode();
+  const familyRef = doc(db, "families", state.familyId);
+
+  state.inviteBusy = true;
+  renderInviteCode();
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const famSnap = await tx.get(familyRef);
+      if (!famSnap.exists()) throw new Error("Family not found");
+
+      const oldCode = famSnap.data().activeInviteCode;
+      if (oldCode && oldCode !== code) {
+        tx.delete(doc(db, "invites", oldCode));
+      }
+      tx.set(doc(db, "invites", code), {
+        familyId: state.familyId,
+        createdBy: state.user.uid,
+        createdAt: serverTimestamp()
+      });
+      tx.update(familyRef, { activeInviteCode: code });
+    });
+
+    if (state.family) state.family.activeInviteCode = code;
+    $("#invite-code").textContent = code;
+    toast("New invite code created");
+  } catch (err) {
+    console.error("newInvite:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+  } finally {
+    state.inviteBusy = false;
+    renderInviteCode();
+  }
+}
+
+async function revokeInvite() {
+  if (state.member?.role !== "admin") return;
+  if (state.inviteBusy) return;
+
+  const familyRef = doc(db, "families", state.familyId);
+  state.inviteBusy = true;
+  renderInviteCode();
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const famSnap = await tx.get(familyRef);
+      if (!famSnap.exists()) throw new Error("Family not found");
+
+      const active = famSnap.data().activeInviteCode;
+      if (active) tx.delete(doc(db, "invites", active));
+      tx.update(familyRef, { activeInviteCode: null });
+    });
+
+    if (state.family) state.family.activeInviteCode = null;
+    $("#invite-code").textContent = "—";
+    toast("Invite revoked");
+  } catch (err) {
+    console.error("revokeInvite:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+  } finally {
+    state.inviteBusy = false;
+    renderInviteCode();
+  }
+}
+
+$("#btn-new-invite").onclick = () => newInvite();
+$("#btn-revoke").onclick = () => revokeInvite();
+
+$("#btn-copy-code").onclick = () => {
+  const c = $("#invite-code").textContent;
+  if (c && c !== "—" && c !== "admin only") copy(c, "Code");
+  else toast("Generate a code first");
+};
+
+$("#btn-copy-link").onclick = () => {
+  const c = $("#invite-code").textContent;
+  if (!c || c === "—" || c === "admin only") return toast("Generate a code first");
+  copy(`${location.origin}${location.pathname}?join=${c}`, "Invite link");
+};
+
+/* ── nav ─────────────────────────────────────────────── */
+$$(".nav-btn").forEach((btn) => {
+  btn.onclick = () => {
+    state.view = btn.dataset.view;
+    $$(".nav-btn").forEach((b) => b.classList.toggle("active", b === btn));
+    $$(".view").forEach((v) => v.classList.toggle("hidden", v.dataset.view !== state.view));
+  };
+});
+</script>
+</body>
+</html>
