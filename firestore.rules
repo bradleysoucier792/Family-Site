@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function memberRef(fid, uid) {
+      return /databases/$(database)/documents/families/$(fid)/members/$(uid);
+    }
+
+    function isMember(fid) {
+      return isSignedIn() && exists(memberRef(fid, request.auth.uid));
+    }
+
+    function isAdmin(fid) {
+      return isMember(fid) && get(memberRef(fid, request.auth.uid)).data.role == 'admin';
+    }
+
+    function ownerUid(fid) {
+      return get(/databases/$(database)/documents/families/$(fid)).data.ownerUid;
+    }
+
+    // Per-user pointer doc: users/{uid} -> { familyId }
+    match /users/{uid} {
+      allow read, write: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Invite codes. Doc ID *is* the code. Not listable, only gettable by exact ID.
+    match /invites/{code} {
+      allow get: if isSignedIn();
+      allow create, delete: if isSignedIn() && isAdmin(request.resource.data.familyId);
+      allow update: if false;
+    }
+
+    match /families/{fid} {
+      allow read: if isMember(fid) || (isSignedIn() && resource.data.ownerUid == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if isAdmin(fid);
+
+      match /members/{uid} {
+        allow read: if isMember(fid) || (isSignedIn() && request.auth.uid == uid);
+
+        // Allowed if: you're the family creator, OR you present a valid invite code.
+        allow create: if isSignedIn() && request.auth.uid == uid && (
+          ownerUid(fid) == uid ||
+          (
+            request.resource.data.inviteCode is string &&
+            exists(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode)) &&
+            get(/databases/$(database)/documents/invites/$(request.resource.data.inviteCode)).data.familyId == fid
+          )
+        );
+
+        allow update: if isAdmin(fid) || (isSignedIn() && request.auth.uid == uid);
+        allow delete: if isAdmin(fid);
+      }
+
+      match /shoppingItems/{itemId} {
+        allow read: if isMember(fid);
+        allow create: if isMember(fid) && request.resource.data.createdBy == request.auth.uid;
+        allow update, delete: if isMember(fid);
+      }
+
+      match /tasks/{taskId} {
+        allow read: if isMember(fid);
+        allow create: if isMember(fid) && request.resource.data.createdBy == request.auth.uid;
+        allow update, delete: if isMember(fid);
+      }
+    }
+  }
+}
