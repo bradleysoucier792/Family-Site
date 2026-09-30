@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Family Hub</title>
 <meta name="theme-color" content="#4f8cff">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Family Hub">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -485,12 +486,15 @@ const db = getFirestore(fbApp);
   </svg>`;
   const iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(ICON_SVG);
 
+  // Blob manifests can't resolve relative URLs — absolute base path required.
+  const basePath = location.pathname.replace(/[^/]*$/, ""); // e.g. "/Family-Site/"
+
   const manifest = {
     name: "Family Hub",
     short_name: "Family",
     description: "Private dashboard for the family.",
-    start_url: "./",
-    scope: "./",
+    start_url: basePath,
+    scope: basePath,
     display: "standalone",
     orientation: "portrait-primary",
     background_color: "#0f1115",
@@ -752,38 +756,48 @@ async function enterFamily(fid) {
   subscribe(fid);
 }
 
+/* ── live subscriptions ──────────────────────────────────
+   NOTE: `doc(db, "families", fid)` is a DocumentReference.
+   Passing that into `collection(...)` yields a valid 3-segment
+   path: families/{fid}/<sub>. Passing a CollectionReference
+   (as before) produced a 4-segment path → FirebaseError.
+   ──────────────────────────────────────────────────────── */
 function subscribe(fid) {
-  const famCol = collection(db, "families", fid);
+  const famDoc = doc(db, "families", fid);
 
-  unsubs.push(onSnapshot(collection(famCol, "members"), (snap) => {
+  unsubs.push(onSnapshot(collection(famDoc, "members"), (snap) => {
     state.members = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
     renderMembers(); renderStats();
     renderTaskAssigneeOptions(); renderMealCookOptions();
     renderCalendar(); renderMeals(); renderMessages();
   }, (e) => console.error("members:", e)));
 
-  unsubs.push(onSnapshot(query(collection(famCol, "shoppingItems"), orderBy("createdAt", "desc")), (snap) => {
-    state.shopping = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderShopping(); renderStats();
-  }, (e) => console.error("shopping:", e)));
+  unsubs.push(onSnapshot(
+    query(collection(famDoc, "shoppingItems"), orderBy("createdAt", "desc")),
+    (snap) => {
+      state.shopping = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderShopping(); renderStats();
+    }, (e) => console.error("shopping:", e)));
 
-  unsubs.push(onSnapshot(query(collection(famCol, "tasks"), orderBy("createdAt", "desc")), (snap) => {
-    state.tasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    renderTasks(); renderStats(); renderUpNext();
-  }, (e) => console.error("tasks:", e)));
+  unsubs.push(onSnapshot(
+    query(collection(famDoc, "tasks"), orderBy("createdAt", "desc")),
+    (snap) => {
+      state.tasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderTasks(); renderStats(); renderUpNext();
+    }, (e) => console.error("tasks:", e)));
 
-  unsubs.push(onSnapshot(collection(famCol, "events"), (snap) => {
+  unsubs.push(onSnapshot(collection(famDoc, "events"), (snap) => {
     state.events = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderCalendar(); renderStats(); renderUpNext();
   }, (e) => console.error("events:", e)));
 
-  unsubs.push(onSnapshot(collection(famCol, "meals"), (snap) => {
+  unsubs.push(onSnapshot(collection(famDoc, "meals"), (snap) => {
     state.meals = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderMeals(); renderStats(); renderUpNext();
   }, (e) => console.error("meals:", e)));
 
   unsubs.push(onSnapshot(
-    query(collection(famCol, "messages"), orderBy("createdAt", "desc"), limit(200)),
+    query(collection(famDoc, "messages"), orderBy("createdAt", "desc"), limit(200)),
     (snap) => {
       state.messages = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       renderMessages(); renderStats();
@@ -1286,6 +1300,13 @@ $$(".nav-btn").forEach((btn) => {
     $$(".view").forEach((v) => v.classList.toggle("hidden", v.dataset.view !== state.view));
   };
 });
+
+/* ── PWA service worker (optional) ───────────────────── */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((e) => console.warn("SW:", e));
+  });
+}
 </script>
 </body>
 </html>
