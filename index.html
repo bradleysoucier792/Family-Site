@@ -1,1 +1,165 @@
-blank
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Family Hub</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ── LOADING ─────────────────────────────────────────── -->
+<div id="screen-loading" class="screen center">
+  <div class="spinner"></div>
+</div>
+
+<!-- ── SIGN IN ─────────────────────────────────────────── -->
+<div id="screen-signin" class="screen center hidden">
+  <div class="card auth-card">
+    <div class="logo">🏡</div>
+    <h1>Family Hub</h1>
+    <p class="muted">Your family's private dashboard.</p>
+    <button id="btn-google" class="btn btn-primary btn-block">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45 24c0-1.6-.1-2.7-.4-4H24v8h12c-.2 2-1.5 5-4.8 7l6.7 5.2C41.9 36.5 45 30.9 45 24z"/><path fill="#34A853" d="M24 46c6.5 0 11.9-2.1 15.9-5.8l-6.7-5.2C31.2 36.3 28 37.2 24 37.2c-6 0-11-4-12.8-9.4l-6.9 5.3C8.3 41.1 15.6 46 24 46z"/><path fill="#FBBC05" d="M11.2 27.8c-.5-1.4-.8-2.9-.8-4.4s.3-3 .8-4.4l-6.9-5.3C2.8 16.6 2 20.2 2 24s.8 7.4 2.3 10.3l6.9-5.3z"/><path fill="#EA4335" d="M24 10.8c3.4 0 6.3 1.5 8.3 3.4l6-6C34.5 4.7 29.5 2 24 2 15.6 2 8.3 6.9 4.3 13.7l6.9 5.3C13 13.4 18 10.8 24 10.8z"/></svg>
+      Continue with Google
+    </button>
+    <p id="signin-error" class="error hidden"></p>
+  </div>
+</div>
+
+<!-- ── ONBOARDING ──────────────────────────────────────── -->
+<div id="screen-onboarding" class="screen center hidden">
+  <div class="card auth-card">
+    <div class="logo">🏡</div>
+    <h1 id="ob-title">Welcome</h1>
+    <p class="muted" id="ob-sub">Create a family or join one with an invite code.</p>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="create">Create</button>
+      <button class="tab" data-tab="join">Join</button>
+    </div>
+
+    <form id="form-create" class="stack">
+      <label class="field">
+        <span>Family name</span>
+        <input id="create-name" type="text" placeholder="The Smiths" required maxlength="60">
+      </label>
+      <label class="field">
+        <span>Your display name</span>
+        <input id="create-display" type="text" placeholder="Alex" required maxlength="40">
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">Create family</button>
+    </form>
+
+    <form id="form-join" class="stack hidden">
+      <label class="field">
+        <span>Invite code</span>
+        <input id="join-code" type="text" placeholder="ABC123" required maxlength="8"
+               autocapitalize="characters" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="field">
+        <span>Your display name</span>
+        <input id="join-display" type="text" placeholder="Sam" required maxlength="40">
+      </label>
+      <button class="btn btn-primary btn-block" type="submit">Join family</button>
+    </form>
+
+    <p id="ob-error" class="error hidden"></p>
+    <button id="btn-signout-ob" class="btn btn-ghost btn-block">Sign out</button>
+  </div>
+</div>
+
+<!-- ── APP ─────────────────────────────────────────────── -->
+<div id="screen-app" class="screen hidden">
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo-sm">🏡</span>
+      <div>
+        <strong id="family-name">Family</strong>
+        <div class="tiny muted" id="family-sub"></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button id="btn-theme" class="btn btn-icon" title="Toggle theme">🌙</button>
+      <div class="avatar" id="me-avatar" title=""></div>
+      <button id="btn-signout" class="btn btn-icon" title="Sign out">⎋</button>
+    </div>
+  </header>
+
+  <nav class="nav">
+    <button class="nav-btn active" data-view="home">Home</button>
+    <button class="nav-btn" data-view="shopping">Shopping</button>
+    <button class="nav-btn" data-view="tasks">Tasks</button>
+    <button class="nav-btn" data-view="family">Family</button>
+  </nav>
+
+  <main>
+    <!-- HOME -->
+    <section class="view" data-view="home">
+      <h2 id="greeting">Hello</h2>
+      <p class="muted" id="today"></p>
+      <div class="stat-grid" id="stats"></div>
+    </section>
+
+    <!-- SHOPPING -->
+    <section class="view hidden" data-view="shopping">
+      <div class="view-head">
+        <h2>Shopping list</h2>
+        <button id="btn-clear-checked" class="btn btn-ghost btn-sm">Clear checked</button>
+      </div>
+      <form id="form-shopping" class="row-form">
+        <input id="shop-name" type="text" placeholder="Add an item…" required maxlength="80">
+        <input id="shop-qty" type="text" placeholder="Qty" maxlength="12" class="qty">
+        <select id="shop-cat">
+          <option value="Produce">Produce</option>
+          <option value="Dairy">Dairy</option>
+          <option value="Meat">Meat</option>
+          <option value="Pantry">Pantry</option>
+          <option value="Frozen">Frozen</option>
+          <option value="Household">Household</option>
+          <option value="Other" selected>Other</option>
+        </select>
+        <button class="btn btn-primary" type="submit">Add</button>
+      </form>
+      <div id="shopping-list"></div>
+    </section>
+
+    <!-- TASKS -->
+    <section class="view hidden" data-view="tasks">
+      <div class="view-head"><h2>Tasks &amp; chores</h2></div>
+      <form id="form-task" class="row-form">
+        <input id="task-title" type="text" placeholder="Add a task…" required maxlength="100">
+        <select id="task-assignee"></select>
+        <input id="task-due" type="date" class="qty">
+        <button class="btn btn-primary" type="submit">Add</button>
+      </form>
+      <div id="task-list"></div>
+    </section>
+
+    <!-- FAMILY -->
+    <section class="view hidden" data-view="family">
+      <div class="view-head"><h2>Family</h2></div>
+      <div class="card">
+        <h3>Invite someone</h3>
+        <p class="muted tiny">Share this code or link. Anyone signed in can use it to join.</p>
+        <div class="invite-row">
+          <code id="invite-code" class="code">—</code>
+          <button id="btn-copy-code" class="btn btn-sm">Copy code</button>
+          <button id="btn-copy-link" class="btn btn-sm">Copy link</button>
+          <button id="btn-new-invite" class="btn btn-sm btn-ghost">New code</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Members</h3>
+        <div id="member-list"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
