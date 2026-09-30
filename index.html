@@ -68,17 +68,18 @@ body {
 #btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .field { display: block; text-align: left; margin-top: 12px; }
 .field > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; }
-input, select {
+input, select, textarea {
   font: inherit; width: 100%; padding: 9px 11px; border-radius: 9px;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
 }
-input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 input[type="checkbox"] {
   width: 18px; height: 18px; flex: 0 0 auto;
   padding: 0; margin: 0;
   accent-color: var(--accent);
   cursor: pointer;
 }
+input[type="file"] { padding: 6px; font-size: 13px; }
 .stack { display: flex; flex-direction: column; }
 .row-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .row-form input[type="text"] { flex: 1 1 200px; }
@@ -99,9 +100,12 @@ input[type="checkbox"] {
 .avatar {
   width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
   font-weight: 600; font-size: 14px; color: #fff;
+  overflow: hidden;
   transition: filter .15s;
+  flex: 0 0 auto;
 }
-#me-avatar { cursor: pointer; position: relative; overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#me-avatar { cursor: pointer; position: relative; }
 #me-avatar:hover { filter: brightness(1.15); }
 #me-avatar::after {
   content: "✎";
@@ -254,6 +258,16 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 }
 .color-swatch:hover { transform: scale(1.1); }
 .color-swatch.selected { border-color: var(--text); }
+.profile-photo-preview {
+  width: 80px; height: 80px; border-radius: 50%;
+  overflow: hidden; margin: 6px 0 0;
+  background: var(--surface-2);
+  display: grid; place-items: center;
+  border: 2px solid var(--border);
+  position: relative;
+}
+.profile-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.profile-photo-preview .placeholder { font-size: 28px; color: var(--muted); }
 @keyframes fadeIn { from { opacity: 0; } }
 @keyframes slideUp { from { transform: translateY(10px); opacity: 0; } }
 /* calendar */
@@ -314,6 +328,46 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 .msg .head .del { margin-left: auto; background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; }
 .msg .head .del:hover { color: var(--danger); }
 .msg .body { font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
+.msg .media {
+  margin-top: 8px; border-radius: 10px; overflow: hidden;
+  background: var(--surface-2);
+  max-width: 100%;
+}
+.msg .media img,
+.msg .media video { display: block; max-width: 100%; height: auto; }
+.msg .media audio { width: 100%; padding: 8px; }
+.msg .media .file-link {
+  display: block; padding: 12px 14px; color: var(--accent);
+  text-decoration: none; font-size: 14px; word-break: break-all;
+}
+.msg .media .file-link:hover { text-decoration: underline; }
+.upload-preview {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 9px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.upload-preview .thumb {
+  width: 48px; height: 48px; border-radius: 8px;
+  overflow: hidden; flex: 0 0 auto;
+  background: var(--surface); display: grid; place-items: center;
+}
+.upload-preview .thumb img,
+.upload-preview .thumb video { width: 100%; height: 100%; object-fit: cover; }
+.upload-preview .thumb .file-icon { font-size: 20px; }
+.upload-preview .grow { flex: 1; min-width: 0; }
+.upload-preview .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upload-preview .rm { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
+.upload-preview .rm:hover { color: var(--danger); }
+.upload-progress {
+  height: 4px; background: var(--surface-2); border-radius: 2px;
+  overflow: hidden; margin-top: 4px;
+}
+.upload-progress .bar {
+  height: 100%; background: var(--accent); width: 0%;
+  transition: width .15s;
+}
 .form-actions { display: flex; gap: 8px; margin-top: 14px; }
 .form-actions .danger { color: var(--danger); margin-left: auto; }
 #upnext-list .upnext-row {
@@ -508,9 +562,19 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 
     <section class="view hidden" data-view="messages">
       <div class="view-head"><h2>Message board</h2></div>
-      <form id="form-message" class="row-form">
-        <input id="msg-text" type="text" placeholder="Post a message…" required maxlength="500" autocomplete="off">
-        <button class="btn btn-primary" type="submit">Post</button>
+      <form id="form-message" class="stack" style="margin-bottom:16px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input id="msg-text" type="text" placeholder="Post a message…" maxlength="500" autocomplete="off" style="flex:1 1 240px;">
+          <button class="btn btn-primary" type="submit">Post</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;">
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+            📎 Attach
+            <input id="msg-file" type="file" class="hidden" accept="image/*,video/*,audio/*,.pdf,.txt">
+          </label>
+          <span class="muted tiny" id="msg-file-hint">Images, video, audio, or a file</span>
+        </div>
+        <div id="msg-preview" class="hidden" style="margin-top:8px;"></div>
       </form>
       <div id="message-list"></div>
     </section>
@@ -568,6 +632,13 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 
         <div class="settings-row">
           <div class="grow">
+            <div>Media storage</div>
+            <div class="muted tiny" id="settings-r2-status">—</div>
+          </div>
+        </div>
+
+        <div class="settings-row">
+          <div class="grow">
             <div>Family ID</div>
             <div class="muted tiny"><code id="settings-family-id">—</code></div>
           </div>
@@ -600,6 +671,13 @@ import {
   collection, query, where, orderBy, limit, onSnapshot,
   serverTimestamp, writeBatch, runTransaction
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+/* ══════════════════════════════════════════════════════════
+   ⚙️  CONFIGURE ME
+   Paste your Cloudflare Worker URL from Step 7 here.
+   Leave as "" to disable media features gracefully.
+   ══════════════════════════════════════════════════════════ */
+const R2_WORKER_URL = "family-hub-uploader.bradleysoucier792.workers.dev";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD2aLkvEVNzJAlqmSqq46wz9anLfk6yb08",
@@ -700,7 +778,52 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.remove("hidden");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add("hidden"), 2400);
+  toastTimer = setTimeout(() => el.classList.add("hidden"), 2600);
+}
+
+/* ── R2 upload (presigned URL via Worker) ────────────── */
+async function r2Upload(file, prefix) {
+  if (!R2_WORKER_URL) throw new Error("Media storage isn't configured yet.");
+
+  const res = await fetch(R2_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      filename: file.name || "upload",
+      contentType: file.type || "application/octet-stream",
+      prefix: prefix || "uploads"
+    })
+  });
+  if (!res.ok) throw new Error(`Worker returned ${res.status}`);
+  const { uploadUrl, publicUrl } = await res.json();
+  if (!uploadUrl || !publicUrl) throw new Error("Worker response was missing URLs");
+
+  const put = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type || "application/octet-stream" },
+    body: file
+  });
+  if (!put.ok) throw new Error(`Upload failed (${put.status})`);
+
+  return { publicUrl, contentType: file.type || "" };
+}
+
+function isImage(type) { return /^image\//.test(type); }
+function isVideo(type) { return /^video\//.test(type); }
+function isAudio(type) { return /^audio\//.test(type); }
+
+/* ── avatars ─────────────────────────────────────────── */
+function avatarHTML(member, extraStyle = "") {
+  const bg = member?.color || "#4f8cff";
+  const name = member?.displayName || "?";
+  const url = member?.photoURL;
+  const style = `background:${esc(bg)};${extraStyle}`;
+  if (url) {
+    return `<div class="avatar" style="${style}">
+      <img src="${esc(url)}" alt="${esc(name)}" loading="lazy">
+    </div>`;
+  }
+  return `<div class="avatar" style="${style}">${esc(initials(name))}</div>`;
 }
 
 /* ── modal system (replaces confirm/prompt/alert) ────── */
@@ -803,7 +926,8 @@ const state = {
   view: "home",
   calMonth: null, calSelected: null,
   mealsWeek: null, editingMealId: null,
-  inviteBusy: false
+  inviteBusy: false,
+  pendingMessageFile: null
 };
 let unsubs = [];
 let seenMembersOnce = false;
@@ -910,6 +1034,7 @@ async function createFamily(familyName, displayName) {
     displayName, email: state.user.email || "",
     role: "admin", color: pickColor(),
     hideEmail: false,
+    photoURL: state.user.photoURL || null,
     joinedAt: serverTimestamp()
   });
   await setDoc(doc(db, "users", uid), { familyId: fid, displayName });
@@ -926,6 +1051,7 @@ async function joinFamily(code, displayName) {
     displayName, email: state.user.email || "",
     role: "adult", color: pickColor(),
     hideEmail: false,
+    photoURL: state.user.photoURL || null,
     inviteCode: code,
     joinedAt: serverTimestamp()
   });
@@ -1086,9 +1212,12 @@ function renderShell() {
   renderFamilySub();
 
   const av = $("#me-avatar");
-  av.textContent = initials(state.member.displayName);
+  const url = state.member.photoURL;
   av.style.background = state.member.color || "#4f8cff";
   av.title = `Edit profile — ${state.member.displayName}`;
+  av.innerHTML = url
+    ? `<img src="${esc(url)}" alt="${esc(state.member.displayName)}" loading="lazy">`
+    : esc(initials(state.member.displayName));
 
   const now = new Date();
   const h = now.getHours();
@@ -1496,25 +1625,124 @@ function renderMessages() {
     const mine = m.authorUid === state.user.uid;
     const iAmAdmin = state.member?.role === "admin";
     const canDelete = mine || iAmAdmin;
+    const author = state.members.find(mm => mm.uid === m.authorUid);
+
+    let mediaHTML = "";
+    if (m.mediaUrl) {
+      const t = m.mediaType || "";
+      if (isImage(t)) {
+        mediaHTML = `<div class="media"><img src="${esc(m.mediaUrl)}" alt="" loading="lazy"></div>`;
+      } else if (isVideo(t)) {
+        mediaHTML = `<div class="media"><video src="${esc(m.mediaUrl)}" controls preload="metadata"></video></div>`;
+      } else if (isAudio(t)) {
+        mediaHTML = `<div class="media"><audio src="${esc(m.mediaUrl)}" controls preload="metadata"></audio></div>`;
+      } else {
+        const name = m.mediaName || "Attachment";
+        mediaHTML = `<div class="media"><a class="file-link" href="${esc(m.mediaUrl)}" target="_blank" rel="noopener">📎 ${esc(name)}</a></div>`;
+      }
+    }
+
     return `
       <div class="msg" data-id="${m.id}">
         <div class="head">
+          ${avatarHTML(author || { displayName: memberName(m.authorUid), color: "#888" }, "width:24px;height:24px;font-size:11px;")}
           <span class="name">${esc(memberName(m.authorUid))}</span>
           <span class="time">${esc(relTime(m.createdAt))}</span>
           ${canDelete ? `<button class="del" data-act="delete" title="Delete">×</button>` : ""}
         </div>
-        <div class="body">${esc(m.text)}</div>
+        ${m.text ? `<div class="body">${esc(m.text)}</div>` : ""}
+        ${mediaHTML}
       </div>`;
   }).join("");
 }
 
+/* pending attachment in message composer */
+function clearMsgPreview() {
+  state.pendingMessageFile = null;
+  $("#msg-file").value = "";
+  $("#msg-preview").classList.add("hidden");
+  $("#msg-preview").innerHTML = "";
+}
+
+function renderMsgPreview() {
+  const file = state.pendingMessageFile;
+  const wrap = $("#msg-preview");
+  if (!file) { wrap.classList.add("hidden"); wrap.innerHTML = ""; return; }
+
+  const type = file.type || "";
+  let thumb;
+  if (isImage(type)) {
+    const url = URL.createObjectURL(file);
+    thumb = `<div class="thumb"><img src="${url}" alt=""></div>`;
+  } else if (isVideo(type)) {
+    const url = URL.createObjectURL(file);
+    thumb = `<div class="thumb"><video src="${url}" muted></video></div>`;
+  } else {
+    thumb = `<div class="thumb"><span class="file-icon">📎</span></div>`;
+  }
+
+  wrap.innerHTML = `
+    <div class="upload-preview">
+      ${thumb}
+      <div class="grow">
+        <div class="name">${esc(file.name || "file")}</div>
+        <div class="muted tiny">${(file.size / 1024).toFixed(0)} KB</div>
+      </div>
+      <button type="button" class="rm" title="Remove" id="msg-preview-rm">×</button>
+    </div>`;
+  wrap.classList.remove("hidden");
+  $("#msg-preview-rm").onclick = clearMsgPreview;
+}
+
+$("#msg-file").addEventListener("change", (e) => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  if (f.size > 20 * 1024 * 1024) {
+    toast("File too large (max 20 MB)");
+    e.target.value = "";
+    return;
+  }
+  state.pendingMessageFile = f;
+  renderMsgPreview();
+});
+
 $("#form-message").onsubmit = async (e) => {
   e.preventDefault();
-  const text = $("#msg-text").value.trim(); if (!text) return;
-  $("#msg-text").value = "";
-  await addDoc(collection(db, "families", state.familyId, "messages"), {
-    text, authorUid: state.user.uid, createdAt: serverTimestamp()
-  });
+  const textInput = $("#msg-text");
+  const text = textInput.value.trim();
+  const file = state.pendingMessageFile;
+  if (!text && !file) return;
+
+  const submitBtn = e.submitter;
+  const originalLabel = submitBtn?.textContent;
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Posting…"; }
+
+  try {
+    let mediaUrl = null, mediaType = null, mediaName = null;
+
+    if (file) {
+      if (!R2_WORKER_URL) throw new Error("Media storage isn't configured yet.");
+      const res = await r2Upload(file, `families/${state.familyId}/messages`);
+      mediaUrl = res.publicUrl;
+      mediaType = res.contentType;
+      mediaName = file.name || "attachment";
+    }
+
+    await addDoc(collection(db, "families", state.familyId, "messages"), {
+      text,
+      authorUid: state.user.uid,
+      createdAt: serverTimestamp(),
+      ...(mediaUrl ? { mediaUrl, mediaType, mediaName } : {})
+    });
+
+    textInput.value = "";
+    clearMsgPreview();
+  } catch (err) {
+    console.error("sendMessage:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = originalLabel || "Post"; }
+  }
 };
 
 $("#message-list").addEventListener("click", async (e) => {
@@ -1538,8 +1766,6 @@ function renderMembers() {
     const isMe = m.uid === state.user.uid;
     const isOwner = m.uid === ownerUid;
     const canEditRole = iAmAdmin && !isMe && !isOwner;
-    // Email shows unless the member opted to hide it.
-    // `hideEmail === true` hides; anything else (false / missing) shows.
     const showEmail = m.email && m.hideEmail !== true;
 
     let controls;
@@ -1559,7 +1785,7 @@ function renderMembers() {
 
     return `
       <div class="member-row" data-uid="${m.uid}">
-        <div class="avatar" style="background:${m.color || "#4f8cff"}">${esc(initials(m.displayName))}</div>
+        ${avatarHTML(m)}
         <div class="grow">
           <div>${esc(m.displayName)}${isMe ? " <span class='muted tiny'>(you)</span>" : ""}</div>
           ${showEmail ? `<div class="meta muted tiny">${esc(m.email)}</div>` : ""}
@@ -1657,16 +1883,39 @@ $("#member-list").addEventListener("click", (e) => {
 
 $("#btn-leave").onclick = () => leaveFamily();
 
-/* ── profile edit (nickname + color + email visibility) ─ */
+/* ── profile edit (nickname + color + email visibility + photo) ── */
 async function editProfile() {
   let selectedColor = state.member.color || "#4f8cff";
+  let photoFile = null;
+  let removePhoto = false;
+
+  const currentPhoto = state.member.photoURL || null;
 
   const result = await openModal(`
     <h3>Your profile</h3>
+
+    <div class="field">
+      <span>Profile photo</span>
+      <div class="profile-photo-preview" id="__photo-prev">
+        ${currentPhoto
+          ? `<img src="${esc(currentPhoto)}" alt="">`
+          : `<span class="placeholder">📷</span>`}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+        <label class="btn btn-sm btn-ghost" style="cursor:pointer;">
+          Choose photo
+          <input type="file" id="__photo-input" class="hidden" accept="image/*">
+        </label>
+        <button type="button" class="btn btn-sm btn-ghost" id="__photo-remove" style="${currentPhoto ? "" : "display:none;"}">Remove</button>
+      </div>
+      <div class="muted tiny" style="margin-top:4px;">JPG or PNG, up to 5 MB.</div>
+    </div>
+
     <label class="field">
       <span>Display name</span>
       <input id="__profile-name" type="text" maxlength="40" value="${esc(state.member.displayName)}">
     </label>
+
     <div class="field">
       <span>Color</span>
       <div class="color-row">
@@ -1679,11 +1928,13 @@ async function editProfile() {
         `).join("")}
       </div>
     </div>
+
     <label class="checkbox-row" style="margin-top:14px;">
       <input type="checkbox" id="__profile-hide-email" ${state.member.hideEmail === true ? "checked" : ""}>
       <span>Hide my email from other members</span>
     </label>
     <p class="muted tiny" style="margin-top:2px;margin-left:28px;">${esc(state.user.email || "")}</p>
+
     <div class="modal-actions">
       <button class="btn" data-act="cancel">Cancel</button>
       <button class="btn btn-primary" data-act="save">Save</button>
@@ -1692,7 +1943,9 @@ async function editProfile() {
     onMount(backdrop, close) {
       const nameInput = backdrop.querySelector("#__profile-name");
       const hideEmailInput = backdrop.querySelector("#__profile-hide-email");
-      requestAnimationFrame(() => { nameInput.focus(); nameInput.select(); });
+      const photoInput = backdrop.querySelector("#__photo-input");
+      const photoPrev = backdrop.querySelector("#__photo-prev");
+      const removeBtn = backdrop.querySelector("#__photo-remove");
 
       backdrop.querySelectorAll(".color-swatch").forEach(sw => {
         sw.addEventListener("click", () => {
@@ -1702,13 +1955,43 @@ async function editProfile() {
         });
       });
 
+      photoInput.addEventListener("change", () => {
+        const f = photoInput.files?.[0];
+        if (!f) return;
+        if (f.size > 5 * 1024 * 1024) {
+          toast("Photo too large (max 5 MB)");
+          photoInput.value = "";
+          return;
+        }
+        if (!isImage(f.type)) {
+          toast("Please pick an image");
+          photoInput.value = "";
+          return;
+        }
+        photoFile = f;
+        removePhoto = false;
+        const url = URL.createObjectURL(f);
+        photoPrev.innerHTML = `<img src="${url}" alt="">`;
+        removeBtn.style.display = "";
+      });
+
+      removeBtn.addEventListener("click", () => {
+        photoFile = null;
+        removePhoto = true;
+        photoInput.value = "";
+        photoPrev.innerHTML = `<span class="placeholder">📷</span>`;
+        removeBtn.style.display = "none";
+      });
+
       const commit = () => {
         const name = nameInput.value.trim();
         if (!name) { nameInput.focus(); return; }
         close({
           displayName: name,
           color: selectedColor,
-          hideEmail: hideEmailInput.checked
+          hideEmail: hideEmailInput.checked,
+          photoFile,
+          removePhoto
         });
       };
 
@@ -1728,17 +2011,23 @@ async function editProfile() {
   if (!result) return;
 
   try {
-    await updateDoc(doc(db, "families", state.familyId, "members", state.user.uid), {
-      displayName: result.displayName,
-      color: result.color,
-      hideEmail: result.hideEmail
-    });
-    state.member = {
-      ...state.member,
+    const update = {
       displayName: result.displayName,
       color: result.color,
       hideEmail: result.hideEmail
     };
+
+    if (result.photoFile) {
+      if (!R2_WORKER_URL) throw new Error("Media storage isn't configured yet.");
+      const up = await r2Upload(result.photoFile, `families/${state.familyId}/avatars`);
+      update.photoURL = up.publicUrl;
+    } else if (result.removePhoto) {
+      update.photoURL = null;
+    }
+
+    await updateDoc(doc(db, "families", state.familyId, "members", state.user.uid), update);
+
+    state.member = { ...state.member, ...update };
     renderShell();
     renderMembers();
     renderMessages();
@@ -1759,6 +2048,15 @@ function renderSettings() {
 
   $("#settings-family-name").textContent = state.family.name;
   $("#settings-family-id").textContent = state.familyId;
+
+  const r2El = $("#settings-r2-status");
+  if (R2_WORKER_URL) {
+    r2El.textContent = "Connected ✓";
+    r2El.style.color = "var(--ok)";
+  } else {
+    r2El.textContent = "Not configured";
+    r2El.style.color = "var(--muted)";
+  }
 
   const iAmAdmin = state.member?.role === "admin";
   const iAmOwner = state.family.ownerUid === state.user.uid;
@@ -1808,7 +2106,7 @@ async function transferOwnership() {
     <div class="modal-list">
       ${candidates.map(m => `
         <button class="modal-list-item" data-uid="${m.uid}">
-          <div class="avatar" style="background:${m.color || "#4f8cff"}">${esc(initials(m.displayName))}</div>
+          ${avatarHTML(m)}
           <div class="grow">
             <div>${esc(m.displayName)}</div>
             ${m.email && m.hideEmail !== true ? `<div class="muted tiny">${esc(m.email)}</div>` : ""}
