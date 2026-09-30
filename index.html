@@ -427,12 +427,16 @@ h2 { font-size: 20px; margin: 0 0 4px; }
       <div class="view-head"><h2>Family</h2></div>
       <div class="card">
         <h3>Invite someone</h3>
-        <p class="muted tiny">Share this code or link. Anyone signed in can use it to join.</p>
+        <p class="muted tiny">
+          Share this code or link. Only one code is active at a time —
+          generating a new one revokes the previous code.
+        </p>
         <div class="invite-row">
           <code id="invite-code" class="code">—</code>
           <button id="btn-copy-code" class="btn btn-sm">Copy code</button>
           <button id="btn-copy-link" class="btn btn-sm">Copy link</button>
           <button id="btn-new-invite" class="btn btn-sm btn-ghost">New code</button>
+          <button id="btn-revoke" class="btn btn-sm btn-ghost">Revoke</button>
         </div>
       </div>
       <div class="card">
@@ -486,8 +490,7 @@ const db = getFirestore(fbApp);
   </svg>`;
   const iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(ICON_SVG);
 
-  // Blob manifests can't resolve relative URLs — absolute base path required.
-  const basePath = location.pathname.replace(/[^/]*$/, ""); // e.g. "/Family-Site/"
+  const basePath = location.pathname.replace(/[^/]*$/, "");
 
   const manifest = {
     name: "Family Hub",
@@ -678,7 +681,12 @@ async function createFamily(familyName, displayName) {
   const familyRef = doc(collection(db, "families"));
   const fid = familyRef.id;
 
-  await setDoc(familyRef, { name: familyName, ownerUid: uid, createdAt: serverTimestamp() });
+  await setDoc(familyRef, {
+    name: familyName,
+    ownerUid: uid,
+    activeInviteCode: null,
+    createdAt: serverTimestamp()
+  });
   await setDoc(doc(db, "families", fid, "members", uid), {
     displayName, email: state.user.email || "",
     role: "admin", color: pickColor(), joinedAt: serverTimestamp()
@@ -748,21 +756,25 @@ async function enterFamily(fid) {
   state.calSelected = todayYmd();
   state.mealsWeek = weekStart(now);
 
-  const savedInvite = localStorage.getItem(`fh:invite:${fid}`);
-  if (savedInvite) state._inviteCode = savedInvite;
-
   renderShell();
   show("app");
   subscribe(fid);
 }
 
 /* ── live subscriptions ──────────────────────────────────
-   NOTE: `doc(db, "families", fid)` is a DocumentReference.
-   Passing that into `collection(...)` yields a valid 3-segment
-   path: families/{fid}/<sub>.
+   `doc(db, "families", fid)` is a DocumentReference; passing
+   it into `collection(...)` yields families/{fid}/<sub>.
    ──────────────────────────────────────────────────────── */
 function subscribe(fid) {
   const famDoc = doc(db, "families", fid);
+
+  // Live family doc — keeps activeInviteCode in sync if another
+  // admin rotates/revokes the code on a different device.
+  unsubs.push(onSnapshot(famDoc, (snap) => {
+    if (!snap.exists()) return;
+    state.family = { id: fid, ...snap.data() };
+    renderInviteCode();
+  }, (e) => console.error("family:", e)));
 
   unsubs.push(onSnapshot(collection(famDoc, "members"), (snap) => {
     state.members = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
@@ -1257,31 +1269,68 @@ function renderMembers() {
 }
 
 /* ── invites ─────────────────────────────────────────── */
-async function renderInviteCode() {
+function renderInviteCode() {
   const el = $("#invite-code");
+
   if (state.member?.role !== "admin") {
     el.textContent = "admin only";
     $("#btn-new-invite").disabled = true;
+    $("#btn-revoke").disabled = true;
     return;
   }
+
   $("#btn-new-invite").disabled = false;
-  el.textContent = state._inviteCode || "—";
+
+  const active = state.family?.activeInviteCode;
+  el.textContent = active || "—";
+  $("#btn-revoke").disabled = !active;
 }
 
 async function newInvite() {
+  if (state.member?.role !== "admin") return;
+
   const code = makeCode();
-  await setDoc(doc(db, "invites", code), {
+  const oldCode = state.family?.activeInviteCode;
+
+  const batch = writeBatch(db);
+  batch.set(doc(db, "invites", code), {
     familyId: state.familyId,
     createdBy: state.user.uid,
     createdAt: serverTimestamp()
   });
-  state._inviteCode = code;
-  localStorage.setItem(`fh:invite:${state.familyId}`, code);
+  if (oldCode && oldCode !== code) {
+    batch.delete(doc(db, "invites", oldCode));
+  }
+  batch.update(doc(db, "families", state.familyId), { activeInviteCode: code });
+
+  await batch.commit();
+
+  // Local echo (the family doc listener will also confirm this shortly).
+  state.family.activeInviteCode = code;
   $("#invite-code").textContent = code;
+  $("#btn-revoke").disabled = false;
   toast("New invite code created");
 }
 
+async function revokeInvite() {
+  if (state.member?.role !== "admin") return;
+  const code = state.family?.activeInviteCode;
+  if (!code) return toast("No active code to revoke");
+
+  const batch = writeBatch(db);
+  batch.delete(doc(db, "invites", code));
+  batch.update(doc(db, "families", state.familyId), { activeInviteCode: null });
+
+  await batch.commit();
+
+  state.family.activeInviteCode = null;
+  $("#invite-code").textContent = "—";
+  $("#btn-revoke").disabled = true;
+  toast("Invite revoked");
+}
+
 $("#btn-new-invite").onclick = () => newInvite().catch((e) => toast(e.message));
+$("#btn-revoke").onclick = () => revokeInvite().catch((e) => toast(e.message));
 
 $("#btn-copy-code").onclick = () => {
   const c = $("#invite-code").textContent;
