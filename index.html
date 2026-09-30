@@ -4,7 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Family Hub</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>">
+<meta name="theme-color" content="#4f8cff">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Family Hub">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="icon.svg">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -89,8 +95,11 @@
 
   <nav class="nav">
     <button class="nav-btn active" data-view="home">Home</button>
+    <button class="nav-btn" data-view="calendar">Calendar</button>
+    <button class="nav-btn" data-view="meals">Meals</button>
     <button class="nav-btn" data-view="shopping">Shopping</button>
     <button class="nav-btn" data-view="tasks">Tasks</button>
+    <button class="nav-btn" data-view="messages">Messages</button>
     <button class="nav-btn" data-view="family">Family</button>
   </nav>
 
@@ -100,6 +109,70 @@
       <h2 id="greeting">Hello</h2>
       <p class="muted" id="today"></p>
       <div class="stat-grid" id="stats"></div>
+      <div class="card" id="home-upnext" hidden>
+        <h3>Up next</h3>
+        <div id="upnext-list"></div>
+      </div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section class="view hidden" data-view="calendar">
+      <div class="view-head">
+        <h2 id="cal-title">Month</h2>
+        <div class="cal-nav">
+          <button id="cal-prev" class="btn btn-sm" title="Previous month">‹</button>
+          <button id="cal-today" class="btn btn-sm">Today</button>
+          <button id="cal-next" class="btn btn-sm" title="Next month">›</button>
+        </div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+
+      <div id="cal-day">
+        <div class="group-title" id="cal-day-title"></div>
+        <div id="cal-events"></div>
+        <form id="form-event" class="row-form">
+          <input id="ev-title" type="text" placeholder="Add event…" required maxlength="100">
+          <input id="ev-time" type="time" class="qty" title="Time (optional)">
+          <input id="ev-location" type="text" placeholder="Location" maxlength="80" class="qty">
+          <button class="btn btn-primary" type="submit">Add</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- MEALS -->
+    <section class="view hidden" data-view="meals">
+      <div class="view-head">
+        <h2 id="meals-title">This week</h2>
+        <div class="cal-nav">
+          <button id="meals-prev" class="btn btn-sm" title="Previous week">‹</button>
+          <button id="meals-this" class="btn btn-sm">This week</button>
+          <button id="meals-next" class="btn btn-sm" title="Next week">›</button>
+        </div>
+      </div>
+      <div id="meals-list"></div>
+
+      <form id="form-meal" class="card stack hidden">
+        <h3 id="meal-form-title">Add meal</h3>
+        <input type="hidden" id="meal-id">
+        <input type="hidden" id="meal-date">
+        <label class="field">
+          <span>Meal</span>
+          <input id="meal-title" type="text" required maxlength="100" placeholder="Spaghetti bolognese">
+        </label>
+        <label class="field">
+          <span>Cook</span>
+          <select id="meal-cook"></select>
+        </label>
+        <label class="field">
+          <span>Recipe URL (optional)</span>
+          <input id="meal-url" type="url" maxlength="500" placeholder="https://…">
+        </label>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">Save</button>
+          <button class="btn btn-ghost" type="button" id="meal-cancel">Cancel</button>
+          <button class="btn btn-ghost danger" type="button" id="meal-delete">Delete</button>
+        </div>
+      </form>
     </section>
 
     <!-- SHOPPING -->
@@ -135,6 +208,16 @@
         <button class="btn btn-primary" type="submit">Add</button>
       </form>
       <div id="task-list"></div>
+    </section>
+
+    <!-- MESSAGES -->
+    <section class="view hidden" data-view="messages">
+      <div class="view-head"><h2>Message board</h2></div>
+      <form id="form-message" class="row-form">
+        <input id="msg-text" type="text" placeholder="Post a message…" required maxlength="500" autocomplete="off">
+        <button class="btn btn-primary" type="submit">Post</button>
+      </form>
+      <div id="message-list"></div>
     </section>
 
     <!-- FAMILY -->
