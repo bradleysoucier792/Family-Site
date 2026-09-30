@@ -11,7 +11,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>">
 <style>
-/* ─── theme tokens ─────────────────────────────────── */
 :root {
   --bg: #0f1115; --surface: #171a21; --surface-2: #1f232c;
   --border: #2a2f3a; --text: #e7eaf0; --muted: #8f97a8;
@@ -35,7 +34,6 @@ body {
 .muted { color: var(--muted); }
 .tiny { font-size: 12px; }
 .error { color: var(--danger); font-size: 13px; margin: 8px 0 0; }
-
 .screen { min-height: 100dvh; }
 .center { display: grid; place-items: center; padding: 24px; }
 .spinner {
@@ -44,7 +42,6 @@ body {
   animation: spin .8s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-
 .card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
@@ -54,7 +51,6 @@ body {
 .auth-card h1 { margin: 8px 0 4px; font-size: 22px; }
 .logo { font-size: 40px; line-height: 1; }
 .logo-sm { font-size: 22px; }
-
 .btn {
   font: inherit; cursor: pointer; border-radius: 9px; padding: 9px 14px;
   border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
@@ -69,7 +65,6 @@ body {
 .btn-icon { padding: 7px 9px; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 #btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; }
-
 .field { display: block; text-align: left; margin-top: 12px; }
 .field > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; }
 input, select {
@@ -83,11 +78,9 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
 .row-form .qty { flex: 0 0 90px; }
 .row-form select { flex: 0 0 auto; width: auto; }
 .row-form .btn { flex: 0 0 auto; }
-
 .tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; margin: 16px 0 4px; }
 .tab { flex: 1; font: inherit; padding: 7px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
 .tab.active { background: var(--surface); color: var(--text); }
-
 .topbar {
   display: flex; justify-content: space-between; align-items: center;
   padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
@@ -100,7 +93,6 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
   font-weight: 600; font-size: 14px; color: #fff;
 }
-
 .nav {
   display: flex; gap: 4px; padding: 10px 16px; overflow-x: auto;
   border-bottom: 1px solid var(--border); background: var(--surface);
@@ -113,16 +105,13 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1
   border-radius: 999px; border: 1px solid transparent; background: transparent; color: var(--muted);
 }
 .nav-btn.active { background: var(--surface-2); color: var(--text); border-color: var(--border); }
-
 main { max-width: 760px; margin: 0 auto; padding: 20px 16px 80px; }
 .view-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 h2 { font-size: 20px; margin: 0 0 4px; }
-
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
 .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
 .stat .n { font-size: 26px; font-weight: 700; line-height: 1.1; }
 .stat .l { font-size: 13px; color: var(--muted); }
-
 .group-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 20px 0 8px; }
 .item {
   display: flex; align-items: center; gap: 12px; padding: 11px 14px;
@@ -138,7 +127,6 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 .item .del:hover { color: var(--danger); }
 .chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
 .empty { color: var(--muted); font-size: 14px; padding: 14px 0; }
-
 .invite-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
 .code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -148,19 +136,14 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 }
 .member-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
 .member-row:last-child { border-bottom: 0; }
-
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
   background: var(--text); color: var(--bg); padding: 9px 16px;
   border-radius: 999px; font-size: 14px; z-index: 100;
 }
-
-/* calendar */
 .cal-nav { display: flex; gap: 4px; }
-.cal-grid {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 16px 0 20px;
-}
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 16px 0 20px; }
 .cal-dow {
   text-align: center; font-size: 11px; text-transform: uppercase;
   letter-spacing: .06em; color: var(--muted); padding: 4px 0;
@@ -187,8 +170,6 @@ h2 { font-size: 20px; margin: 0 0 4px; }
   margin-left: 5px; vertical-align: middle;
 }
 .cal-day.selected.has-events .num::after { background: var(--accent-text); opacity: .9; }
-
-/* meals */
 .meal-row {
   display: flex; align-items: center; gap: 12px; padding: 12px 14px;
   background: var(--surface); border: 1px solid var(--border);
@@ -207,8 +188,6 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 .meal-row .meal .empty { padding: 0; color: var(--muted); font-size: 14px; }
 .meal-row .cook { font-size: 12px; color: var(--muted); }
 .meal-row a { color: var(--accent); }
-
-/* messages */
 .msg {
   padding: 11px 14px; background: var(--surface);
   border: 1px solid var(--border); border-radius: var(--radius);
@@ -220,10 +199,8 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 .msg .head .del { margin-left: auto; background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; }
 .msg .head .del:hover { color: var(--danger); }
 .msg .body { font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
-
 .form-actions { display: flex; gap: 8px; margin-top: 14px; }
 .form-actions .danger { color: var(--danger); margin-left: auto; }
-
 #upnext-list .upnext-row {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px;
@@ -428,8 +405,8 @@ h2 { font-size: 20px; margin: 0 0 4px; }
       <div class="card">
         <h3>Invite someone</h3>
         <p class="muted tiny">
-          Share this code or link. Only one code is active at a time —
-          generating a new one revokes the previous code.
+          Only one code is active at a time. Generating a new one
+          revokes the previous code automatically.
         </p>
         <div class="invite-row">
           <code id="invite-code" class="code">—</code>
@@ -450,10 +427,6 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 <div id="toast" class="toast hidden"></div>
 
 <script type="module">
-/* ══════════════════════════════════════════════════════════
-   Family Hub — single-file app
-   Firebase Auth + Firestore + PWA manifest (generated at runtime)
-   ══════════════════════════════════════════════════════════ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
 import {
   getAuth, GoogleAuthProvider, onAuthStateChanged,
@@ -462,10 +435,9 @@ import {
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc,
   collection, query, where, orderBy, limit, onSnapshot,
-  serverTimestamp, writeBatch
+  serverTimestamp, writeBatch, runTransaction
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-/* ── Firebase config ─────────────────────────────────── */
 const firebaseConfig = {
   apiKey: "AIzaSyD2aLkvEVNzJAlqmSqq46wz9anLfk6yb08",
   authDomain: "family-site-429ed.firebaseapp.com",
@@ -478,7 +450,7 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
-/* ── PWA manifest (generated at runtime) ─────────────── */
+/* ── PWA manifest (runtime) ─────────────────────────── */
 (function injectManifest() {
   const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
     <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
@@ -489,31 +461,23 @@ const db = getFirestore(fbApp);
     <rect x="236" y="336" width="40" height="88" fill="#4f8cff" rx="4"/>
   </svg>`;
   const iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(ICON_SVG);
-
   const basePath = location.pathname.replace(/[^/]*$/, "");
-
   const manifest = {
-    name: "Family Hub",
-    short_name: "Family",
+    name: "Family Hub", short_name: "Family",
     description: "Private dashboard for the family.",
-    start_url: basePath,
-    scope: basePath,
-    display: "standalone",
-    orientation: "portrait-primary",
-    background_color: "#0f1115",
-    theme_color: "#4f8cff",
+    start_url: basePath, scope: basePath,
+    display: "standalone", orientation: "portrait-primary",
+    background_color: "#0f1115", theme_color: "#4f8cff",
     icons: [
       { src: iconUrl, sizes: "any", type: "image/svg+xml", purpose: "any" },
       { src: iconUrl, sizes: "any", type: "image/svg+xml", purpose: "maskable" }
     ]
   };
-
   const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
   const link = document.createElement("link");
   link.rel = "manifest";
   link.href = URL.createObjectURL(blob);
   document.head.appendChild(link);
-
   const apple = document.createElement("link");
   apple.rel = "apple-touch-icon";
   apple.href = iconUrl;
@@ -572,7 +536,7 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.remove("hidden");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.add("hidden"), 2200);
+  toastTimer = setTimeout(() => el.classList.add("hidden"), 2400);
 }
 
 async function copy(text, label) {
@@ -586,7 +550,8 @@ const state = {
   members: [], shopping: [], tasks: [], events: [], meals: [], messages: [],
   view: "home",
   calMonth: null, calSelected: null,
-  mealsWeek: null, editingMealId: null
+  mealsWeek: null, editingMealId: null,
+  inviteBusy: false
 };
 let unsubs = [];
 function clearSubs() {
@@ -768,8 +733,6 @@ async function enterFamily(fid) {
 function subscribe(fid) {
   const famDoc = doc(db, "families", fid);
 
-  // Live family doc — keeps activeInviteCode in sync if another
-  // admin rotates/revokes the code on a different device.
   unsubs.push(onSnapshot(famDoc, (snap) => {
     if (!snap.exists()) return;
     state.family = { id: fid, ...snap.data() };
@@ -1271,66 +1234,98 @@ function renderMembers() {
 /* ── invites ─────────────────────────────────────────── */
 function renderInviteCode() {
   const el = $("#invite-code");
+  const isAdmin = state.member?.role === "admin";
 
-  if (state.member?.role !== "admin") {
+  if (!isAdmin) {
     el.textContent = "admin only";
     $("#btn-new-invite").disabled = true;
     $("#btn-revoke").disabled = true;
     return;
   }
 
-  $("#btn-new-invite").disabled = false;
-
-  const active = state.family?.activeInviteCode;
+  $("#btn-new-invite").disabled = state.inviteBusy;
+  const active = state.family?.activeInviteCode || null;
   el.textContent = active || "—";
-  $("#btn-revoke").disabled = !active;
+  $("#btn-revoke").disabled = !active || state.inviteBusy;
 }
 
+/* Rotation uses a transaction so concurrent rotations from two
+   devices can't both "win" and leave an orphan invite behind.
+   Reads the family doc inside the transaction — the second
+   committer sees the first one's write and cleans it up. */
 async function newInvite() {
   if (state.member?.role !== "admin") return;
+  if (state.inviteBusy) return;
 
   const code = makeCode();
-  const oldCode = state.family?.activeInviteCode;
+  const familyRef = doc(db, "families", state.familyId);
 
-  const batch = writeBatch(db);
-  batch.set(doc(db, "invites", code), {
-    familyId: state.familyId,
-    createdBy: state.user.uid,
-    createdAt: serverTimestamp()
-  });
-  if (oldCode && oldCode !== code) {
-    batch.delete(doc(db, "invites", oldCode));
+  state.inviteBusy = true;
+  renderInviteCode();
+
+  try {
+    await runTransaction(db, async (tx) => {
+      const famSnap = await tx.get(familyRef);
+      if (!famSnap.exists()) throw new Error("Family not found");
+
+      const oldCode = famSnap.data().activeInviteCode;
+      if (oldCode && oldCode !== code) {
+        tx.delete(doc(db, "invites", oldCode));
+      }
+      tx.set(doc(db, "invites", code), {
+        familyId: state.familyId,
+        createdBy: state.user.uid,
+        createdAt: serverTimestamp()
+      });
+      tx.update(familyRef, { activeInviteCode: code });
+    });
+
+    // The family doc listener will also fire and re-render, but this
+    // gives instant feedback even on a slow connection.
+    if (state.family) state.family.activeInviteCode = code;
+    $("#invite-code").textContent = code;
+    toast("New invite code created");
+  } catch (err) {
+    console.error("newInvite:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+  } finally {
+    state.inviteBusy = false;
+    renderInviteCode();
   }
-  batch.update(doc(db, "families", state.familyId), { activeInviteCode: code });
-
-  await batch.commit();
-
-  // Local echo (the family doc listener will also confirm this shortly).
-  state.family.activeInviteCode = code;
-  $("#invite-code").textContent = code;
-  $("#btn-revoke").disabled = false;
-  toast("New invite code created");
 }
 
 async function revokeInvite() {
   if (state.member?.role !== "admin") return;
-  const code = state.family?.activeInviteCode;
-  if (!code) return toast("No active code to revoke");
+  if (state.inviteBusy) return;
 
-  const batch = writeBatch(db);
-  batch.delete(doc(db, "invites", code));
-  batch.update(doc(db, "families", state.familyId), { activeInviteCode: null });
+  const familyRef = doc(db, "families", state.familyId);
+  state.inviteBusy = true;
+  renderInviteCode();
 
-  await batch.commit();
+  try {
+    await runTransaction(db, async (tx) => {
+      const famSnap = await tx.get(familyRef);
+      if (!famSnap.exists()) throw new Error("Family not found");
 
-  state.family.activeInviteCode = null;
-  $("#invite-code").textContent = "—";
-  $("#btn-revoke").disabled = true;
-  toast("Invite revoked");
+      const active = famSnap.data().activeInviteCode;
+      if (active) tx.delete(doc(db, "invites", active));
+      tx.update(familyRef, { activeInviteCode: null });
+    });
+
+    if (state.family) state.family.activeInviteCode = null;
+    $("#invite-code").textContent = "—";
+    toast("Invite revoked");
+  } catch (err) {
+    console.error("revokeInvite:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+  } finally {
+    state.inviteBusy = false;
+    renderInviteCode();
+  }
 }
 
-$("#btn-new-invite").onclick = () => newInvite().catch((e) => toast(e.message));
-$("#btn-revoke").onclick = () => revokeInvite().catch((e) => toast(e.message));
+$("#btn-new-invite").onclick = () => newInvite();
+$("#btn-revoke").onclick = () => revokeInvite();
 
 $("#btn-copy-code").onclick = () => {
   const c = $("#invite-code").textContent;
