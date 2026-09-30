@@ -63,6 +63,7 @@ body {
 .btn-block { width: 100%; margin-top: 12px; }
 .btn-sm { padding: 6px 10px; font-size: 13px; }
 .btn-icon { padding: 7px 9px; }
+.btn-danger { color: var(--danger); }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 #btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .field { display: block; text-align: left; margin-top: 12px; }
@@ -126,6 +127,9 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 .item .del { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
 .item .del:hover { color: var(--danger); }
 .chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.chip.role-admin { background: rgba(79,140,255,.15); color: var(--accent); }
+.chip.role-adult { background: rgba(34,197,94,.15); color: #22c55e; }
+.chip.role-child { background: rgba(234,179,8,.15); color: #eab308; }
 .empty { color: var(--muted); font-size: 14px; padding: 14px 0; }
 .invite-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
 .code {
@@ -134,8 +138,26 @@ h2 { font-size: 20px; margin: 0 0 4px; }
   background: var(--surface-2); border: 1px dashed var(--border);
   padding: 7px 14px; border-radius: 9px;
 }
-.member-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.member-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
 .member-row:last-child { border-bottom: 0; }
+.member-row .grow { flex: 1; min-width: 0; }
+.member-row .role-select {
+  width: auto; padding: 4px 26px 4px 8px; font-size: 12px;
+  border-radius: 6px; background: var(--surface-2);
+  appearance: none;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%238f97a8' stroke-width='1.5' fill='none' fill-rule='evenodd' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+}
+.member-row .del {
+  background: transparent; border: 0; color: var(--muted);
+  cursor: pointer; font-size: 18px; padding: 0 4px;
+}
+.member-row .del:hover { color: var(--danger); }
 .toast {
   position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
   transform: translateX(-50%);
@@ -402,7 +424,8 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 
     <section class="view hidden" data-view="family">
       <div class="view-head"><h2>Family</h2></div>
-      <div class="card">
+
+      <div class="card" id="invite-card">
         <h3>Invite someone</h3>
         <p class="muted tiny">
           Only one code is active at a time. Generating a new one
@@ -416,9 +439,21 @@ h2 { font-size: 20px; margin: 0 0 4px; }
           <button id="btn-revoke" class="btn btn-sm btn-ghost">Revoke</button>
         </div>
       </div>
+
       <div class="card">
         <h3>Members</h3>
+        <p class="muted tiny" id="members-hint"></p>
         <div id="member-list"></div>
+      </div>
+
+      <div class="card" id="leave-card">
+        <h3>Leave this family</h3>
+        <p class="muted tiny">
+          You'll need a new invite from an admin to rejoin.
+        </p>
+        <button id="btn-leave" class="btn btn-ghost btn-danger btn-sm" style="margin-top:8px;">
+          Leave family
+        </button>
       </div>
     </section>
   </main>
@@ -490,6 +525,7 @@ const $$ = (sel) => [...document.querySelectorAll(sel)];
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+const ROLES = ["admin", "adult", "child"];
 const COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#3b82f6","#8b5cf6","#ec4899"];
 const pickColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
 const initials = (n) => (n || "?").trim().slice(0, 1).toUpperCase();
@@ -554,9 +590,11 @@ const state = {
   inviteBusy: false
 };
 let unsubs = [];
+let seenMembersOnce = false;
 function clearSubs() {
   unsubs.forEach((u) => { try { u(); } catch {} });
   unsubs = [];
+  seenMembersOnce = false;
 }
 
 /* ── screens ─────────────────────────────────────────── */
@@ -726,10 +764,7 @@ async function enterFamily(fid) {
   subscribe(fid);
 }
 
-/* ── live subscriptions ──────────────────────────────────
-   `doc(db, "families", fid)` is a DocumentReference; passing
-   it into `collection(...)` yields families/{fid}/<sub>.
-   ──────────────────────────────────────────────────────── */
+/* ── live subscriptions ─────────────────────────────── */
 function subscribe(fid) {
   const famDoc = doc(db, "families", fid);
 
@@ -737,10 +772,25 @@ function subscribe(fid) {
     if (!snap.exists()) return;
     state.family = { id: fid, ...snap.data() };
     renderInviteCode();
+    renderMembers();
   }, (e) => console.error("family:", e)));
 
   unsubs.push(onSnapshot(collection(famDoc, "members"), (snap) => {
     state.members = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+
+    // If we've seen a stable snapshot before and we're no longer in the
+    // list, an admin removed us. Boot to onboarding.
+    if (seenMembersOnce && state.user &&
+        !state.members.some((m) => m.uid === state.user.uid)) {
+      kickedOut();
+      return;
+    }
+    seenMembersOnce = true;
+
+    // Refresh our own member record from the list (in case role changed).
+    const me = state.members.find((m) => m.uid === state.user?.uid);
+    if (me) state.member = { ...state.member, ...me };
+
     renderMembers(); renderStats(); renderFamilySub();
     renderTaskAssigneeOptions(); renderMealCookOptions();
     renderCalendar(); renderMeals(); renderMessages();
@@ -778,6 +828,16 @@ function subscribe(fid) {
     }, (e) => console.error("messages:", e)));
 }
 
+/* ── kicked out ──────────────────────────────────────── */
+async function kickedOut() {
+  clearSubs();
+  try { await setDoc(doc(db, "users", state.user.uid), { familyId: null }); } catch {}
+  state.familyId = state.family = state.member = null;
+  state.members = [];
+  toast("You were removed from this family");
+  show("onboarding");
+}
+
 /* ── shell / stats ───────────────────────────────────── */
 function renderShell() {
   $("#family-name").textContent = state.family.name;
@@ -786,7 +846,7 @@ function renderShell() {
   const av = $("#me-avatar");
   av.textContent = initials(state.member.displayName);
   av.style.background = state.member.color || "#4f8cff";
-  av.title = state.member.displayName;
+  av.title = `${state.member.displayName} (${state.member.role || "member"})`;
 
   const now = new Date();
   const h = now.getHours();
@@ -797,6 +857,7 @@ function renderShell() {
   });
 
   renderInviteCode();
+  renderMembers();
 }
 
 function renderFamilySub() {
@@ -1190,12 +1251,14 @@ function renderMessages() {
 
   list.innerHTML = state.messages.map((m) => {
     const mine = m.authorUid === state.user.uid;
+    const iAmAdmin = state.member?.role === "admin";
+    const canDelete = mine || iAmAdmin;
     return `
       <div class="msg" data-id="${m.id}">
         <div class="head">
           <span class="name">${esc(memberName(m.authorUid))}</span>
           <span class="time">${esc(relTime(m.createdAt))}</span>
-          ${mine ? `<button class="del" data-act="delete" title="Delete">×</button>` : ""}
+          ${canDelete ? `<button class="del" data-act="delete" title="Delete">×</button>` : ""}
         </div>
         <div class="body">${esc(m.text)}</div>
       </div>`;
@@ -1218,18 +1281,128 @@ $("#message-list").addEventListener("click", async (e) => {
   }
 });
 
-/* ── members ─────────────────────────────────────────── */
+/* ── members + roles ─────────────────────────────────── */
 function renderMembers() {
-  $("#member-list").innerHTML = state.members.map((m) => `
-    <div class="member-row">
-      <div class="avatar" style="background:${m.color || "#4f8cff"}">${esc(initials(m.displayName))}</div>
-      <div class="grow">
-        <div>${esc(m.displayName)}${m.uid === state.user.uid ? " <span class='muted tiny'>(you)</span>" : ""}</div>
-        <div class="meta muted tiny">${esc(m.email || "")}</div>
-      </div>
-      <span class="chip">${esc(m.role || "member")}</span>
-    </div>`).join("");
+  const iAmAdmin = state.member?.role === "admin";
+  const ownerUid = state.family?.ownerUid;
+
+  // Hint under the "Members" heading.
+  const hint = iAmAdmin
+    ? "Change a role with the dropdown. Removing a member kicks them out immediately."
+    : "Only admins can change roles or remove members.";
+  $("#members-hint").textContent = hint;
+
+  $("#member-list").innerHTML = state.members.map((m) => {
+    const isMe = m.uid === state.user.uid;
+    const isOwner = m.uid === ownerUid;
+
+    // The role chip is always shown; the select replaces it when editable.
+    const canEditRole = iAmAdmin && !isMe && !isOwner;
+
+    let controls;
+    if (canEditRole) {
+      controls = `
+        <select class="role-select" data-uid="${m.uid}" title="Change role">
+          ${ROLES.map((r) =>
+            `<option value="${r}" ${m.role === r ? "selected" : ""}>${r}</option>`
+          ).join("")}
+        </select>
+        <button class="del" data-act="remove" data-uid="${m.uid}" title="Remove from family">×</button>
+      `;
+    } else {
+      const role = m.role || "member";
+      controls = `<span class="chip role-${esc(role)}">${esc(role)}${isOwner ? " · owner" : ""}</span>`;
+    }
+
+    return `
+      <div class="member-row" data-uid="${m.uid}">
+        <div class="avatar" style="background:${m.color || "#4f8cff"}">${esc(initials(m.displayName))}</div>
+        <div class="grow">
+          <div>${esc(m.displayName)}${isMe ? " <span class='muted tiny'>(you)</span>" : ""}</div>
+          <div class="meta muted tiny">${esc(m.email || "")}</div>
+        </div>
+        ${controls}
+      </div>`;
+  }).join("");
+
+  // Leave-family card: hidden for the owner (they can't leave).
+  const iAmOwner = ownerUid === state.user.uid;
+  $("#leave-card").classList.toggle("hidden", iAmOwner);
 }
+
+async function changeRole(uid, newRole) {
+  if (state.member?.role !== "admin") return;
+  if (!ROLES.includes(newRole)) return;
+
+  const ownerUid = state.family?.ownerUid;
+  if (uid === ownerUid) { toast("Can't change the owner's role"); renderMembers(); return; }
+
+  try {
+    await updateDoc(doc(db, "families", state.familyId, "members", uid), { role: newRole });
+    toast(`${memberName(uid)} is now ${newRole}`);
+  } catch (err) {
+    console.error("changeRole:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+    renderMembers(); // revert UI
+  }
+}
+
+async function removeMember(uid) {
+  if (state.member?.role !== "admin") return;
+
+  const ownerUid = state.family?.ownerUid;
+  if (uid === ownerUid) return toast("Can't remove the owner");
+  if (uid === state.user.uid) return toast("Use 'Leave family' to remove yourself");
+
+  const name = memberName(uid);
+  if (!confirm(`Remove ${name} from the family? They'll need a new invite to rejoin.`)) return;
+
+  try {
+    await deleteDoc(doc(db, "families", state.familyId, "members", uid));
+    toast(`${name} removed`);
+  } catch (err) {
+    console.error("removeMember:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+  }
+}
+
+async function leaveFamily() {
+  if (state.family?.ownerUid === state.user.uid) {
+    return toast("The owner can't leave the family");
+  }
+  if (!confirm("Leave this family? You'll need a new invite to rejoin.")) return;
+
+  try {
+    await deleteDoc(doc(db, "families", state.familyId, "members", state.user.uid));
+    await setDoc(doc(db, "users", state.user.uid), { familyId: null });
+
+    clearSubs();
+    state.familyId = state.family = state.member = null;
+    state.members = [];
+    toast("You left the family");
+    show("onboarding");
+  } catch (err) {
+    console.error("leaveFamily:", err);
+    toast("Failed: " + (err?.message || "unknown error"));
+  }
+}
+
+// Delegated handlers for the member list.
+$("#member-list").addEventListener("change", (e) => {
+  const sel = e.target.closest(".role-select");
+  if (!sel) return;
+  const uid = sel.dataset.uid;
+  sel.disabled = true;
+  changeRole(uid, sel.value).finally(() => { sel.disabled = false; });
+});
+
+$("#member-list").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-act='remove']");
+  if (!btn) return;
+  removeMember(btn.dataset.uid);
+});
+
+$("#btn-leave").onclick = () => leaveFamily();
 
 /* ── invites ─────────────────────────────────────────── */
 function renderInviteCode() {
@@ -1249,10 +1422,6 @@ function renderInviteCode() {
   $("#btn-revoke").disabled = !active || state.inviteBusy;
 }
 
-/* Rotation uses a transaction so concurrent rotations from two
-   devices can't both "win" and leave an orphan invite behind.
-   Reads the family doc inside the transaction — the second
-   committer sees the first one's write and cleans it up. */
 async function newInvite() {
   if (state.member?.role !== "admin") return;
   if (state.inviteBusy) return;
@@ -1280,8 +1449,6 @@ async function newInvite() {
       tx.update(familyRef, { activeInviteCode: code });
     });
 
-    // The family doc listener will also fire and re-render, but this
-    // gives instant feedback even on a slow connection.
     if (state.family) state.family.activeInviteCode = code;
     $("#invite-code").textContent = code;
     toast("New invite code created");
