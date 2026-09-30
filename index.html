@@ -360,14 +360,6 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 .upload-preview .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upload-preview .rm { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
 .upload-preview .rm:hover { color: var(--danger); }
-.upload-progress {
-  height: 4px; background: var(--surface-2); border-radius: 2px;
-  overflow: hidden; margin-top: 4px;
-}
-.upload-progress .bar {
-  height: 100%; background: var(--accent); width: 0%;
-  transition: width .15s;
-}
 .form-actions { display: flex; gap: 8px; margin-top: 14px; }
 .form-actions .danger { color: var(--danger); margin-left: auto; }
 #upnext-list .upnext-row {
@@ -677,7 +669,7 @@ import {
    Paste your Cloudflare Worker URL from Step 7 here.
    Leave as "" to disable media features gracefully.
    ══════════════════════════════════════════════════════════ */
-const R2_WORKER_URL = "https://family-hub-uploader.bradleysoucier792.workers.dev";
+const R2_WORKER_URL = "";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD2aLkvEVNzJAlqmSqq46wz9anLfk6yb08",
@@ -781,7 +773,7 @@ function toast(msg) {
   toastTimer = setTimeout(() => el.classList.add("hidden"), 2600);
 }
 
-/* ── R2 upload (presigned URL via Worker) ────────────── */
+/* ── R2 upload/delete (via Worker) ───────────────────── */
 async function r2Upload(file, prefix) {
   if (!R2_WORKER_URL) throw new Error("Media storage isn't configured yet.");
 
@@ -789,13 +781,14 @@ async function r2Upload(file, prefix) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
+      action: "upload",
       filename: file.name || "upload",
       contentType: file.type || "application/octet-stream",
       prefix: prefix || "uploads"
     })
   });
   if (!res.ok) throw new Error(`Worker returned ${res.status}`);
-  const { uploadUrl, publicUrl } = await res.json();
+  const { uploadUrl, publicUrl, key } = await res.json();
   if (!uploadUrl || !publicUrl) throw new Error("Worker response was missing URLs");
 
   const put = await fetch(uploadUrl, {
@@ -805,7 +798,38 @@ async function r2Upload(file, prefix) {
   });
   if (!put.ok) throw new Error(`Upload failed (${put.status})`);
 
-  return { publicUrl, contentType: file.type || "" };
+  return { publicUrl, key, contentType: file.type || "" };
+}
+
+// Extract the R2 object key from a public URL. Works on any URL the Worker
+// handed us, including ones saved before we started returning `key`.
+function r2KeyFromUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const path = decodeURIComponent(u.pathname.replace(/^\/+/, ""));
+    return path || null;
+  } catch { return null; }
+}
+
+// Fire-and-forget delete of R2 objects. Never throws — cleanup failures
+// shouldn't block UI operations. Logs warnings so you can investigate.
+function r2Delete(keys) {
+  if (!R2_WORKER_URL) return;
+  const list = (Array.isArray(keys) ? keys : [keys]).filter(Boolean);
+  if (!list.length) return;
+  fetch(R2_WORKER_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "delete", keys: list })
+  })
+    .then(res => { if (!res.ok) console.warn("r2Delete:", res.status); })
+    .catch(err => console.warn("r2Delete:", err));
+}
+
+function r2DeleteByUrl(url) {
+  const key = r2KeyFromUrl(url);
+  if (key) r2Delete([key]);
 }
 
 function isImage(type) { return /^image\//.test(type); }
@@ -1034,7 +1058,7 @@ async function createFamily(familyName, displayName) {
     displayName, email: state.user.email || "",
     role: "admin", color: pickColor(),
     hideEmail: false,
-    photoURL: state.user.photoURL || null,
+    photoURL: null,
     joinedAt: serverTimestamp()
   });
   await setDoc(doc(db, "users", uid), { familyId: fid, displayName });
@@ -1051,7 +1075,7 @@ async function joinFamily(code, displayName) {
     displayName, email: state.user.email || "",
     role: "adult", color: pickColor(),
     hideEmail: false,
-    photoURL: state.user.photoURL || null,
+    photoURL: null,
     inviteCode: code,
     joinedAt: serverTimestamp()
   });
@@ -1656,7 +1680,6 @@ function renderMessages() {
   }).join("");
 }
 
-/* pending attachment in message composer */
 function clearMsgPreview() {
   state.pendingMessageFile = null;
   $("#msg-file").value = "";
@@ -1718,12 +1741,13 @@ $("#form-message").onsubmit = async (e) => {
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Posting…"; }
 
   try {
-    let mediaUrl = null, mediaType = null, mediaName = null;
+    let mediaUrl = null, mediaType = null, mediaName = null, mediaKey = null;
 
     if (file) {
       if (!R2_WORKER_URL) throw new Error("Media storage isn't configured yet.");
       const res = await r2Upload(file, `families/${state.familyId}/messages`);
       mediaUrl = res.publicUrl;
+      mediaKey = res.key;
       mediaType = res.contentType;
       mediaName = file.name || "attachment";
     }
@@ -1732,7 +1756,7 @@ $("#form-message").onsubmit = async (e) => {
       text,
       authorUid: state.user.uid,
       createdAt: serverTimestamp(),
-      ...(mediaUrl ? { mediaUrl, mediaType, mediaName } : {})
+      ...(mediaUrl ? { mediaUrl, mediaKey, mediaType, mediaName } : {})
     });
 
     textInput.value = "";
@@ -1748,6 +1772,13 @@ $("#form-message").onsubmit = async (e) => {
 $("#message-list").addEventListener("click", async (e) => {
   const row = e.target.closest(".msg"); if (!row) return;
   if (e.target.dataset.act === "delete") {
+    const msg = state.messages.find(m => m.id === row.dataset.id);
+    // Best-effort R2 cleanup. Prefer the stored key; fall back to parsing
+    // the public URL for messages created before we started storing keys.
+    if (msg?.mediaUrl) {
+      const key = msg.mediaKey || r2KeyFromUrl(msg.mediaUrl);
+      if (key) r2Delete([key]);
+    }
     await deleteDoc(doc(db, "families", state.familyId, "messages", row.dataset.id));
   }
 });
@@ -1823,6 +1854,7 @@ async function removeMember(uid) {
   if (uid === state.user.uid) return toast("Use 'Leave family' to remove yourself");
 
   const name = memberName(uid);
+  const target = state.members.find(m => m.uid === uid);
   const ok = await confirmModal({
     title: "Remove member",
     message: `Remove ${name} from the family? They'll need a new invite to rejoin. Their existing posts and items will stay but show as "Someone".`,
@@ -1832,6 +1864,9 @@ async function removeMember(uid) {
   if (!ok) return;
 
   try {
+    // Clean up their avatar (their messages stay, so we don't touch those).
+    if (target?.photoURL) r2DeleteByUrl(target.photoURL);
+
     await deleteDoc(doc(db, "families", state.familyId, "members", uid));
     toast(`${name} removed`);
   } catch (err) {
@@ -1853,6 +1888,7 @@ async function leaveFamily() {
   if (!ok) return;
 
   try {
+    if (state.member?.photoURL) r2DeleteByUrl(state.member.photoURL);
     await deleteDoc(doc(db, "families", state.familyId, "members", state.user.uid));
     await setDoc(doc(db, "users", state.user.uid), { familyId: null });
 
@@ -1883,13 +1919,14 @@ $("#member-list").addEventListener("click", (e) => {
 
 $("#btn-leave").onclick = () => leaveFamily();
 
-/* ── profile edit (nickname + color + email visibility + photo) ── */
+/* ── profile edit ────────────────────────────────────── */
 async function editProfile() {
   let selectedColor = state.member.color || "#4f8cff";
   let photoFile = null;
   let removePhoto = false;
 
   const currentPhoto = state.member.photoURL || null;
+  const oldPhotoURL = currentPhoto; // captured for cleanup
 
   const result = await openModal(`
     <h3>Your profile</h3>
@@ -2021,11 +2058,21 @@ async function editProfile() {
       if (!R2_WORKER_URL) throw new Error("Media storage isn't configured yet.");
       const up = await r2Upload(result.photoFile, `families/${state.familyId}/avatars`);
       update.photoURL = up.publicUrl;
+      // Delete the old avatar only after the Firestore write succeeds.
+      // Doing it here means if upload succeeded but Firestore fails, we
+      // don't leave the user with no avatar.
     } else if (result.removePhoto) {
       update.photoURL = null;
     }
 
     await updateDoc(doc(db, "families", state.familyId, "members", state.user.uid), update);
+
+    // Firestore write succeeded — now clean up the old R2 object.
+    // This covers both "replaced with new photo" and "removed photo".
+    const replacedOrRemoved = result.photoFile || result.removePhoto;
+    if (replacedOrRemoved && oldPhotoURL) {
+      r2DeleteByUrl(oldPhotoURL);
+    }
 
     state.member = { ...state.member, ...update };
     renderShell();
