@@ -5,22 +5,238 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Family Hub</title>
 <meta name="theme-color" content="#4f8cff">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Family Hub">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="icon" href="icon.svg">
-<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>">
+<style>
+/* ─── theme tokens ─────────────────────────────────── */
+:root {
+  --bg: #0f1115; --surface: #171a21; --surface-2: #1f232c;
+  --border: #2a2f3a; --text: #e7eaf0; --muted: #8f97a8;
+  --accent: #4f8cff; --accent-text: #fff; --danger: #ef4444; --ok: #22c55e;
+  --radius: 12px;
+}
+[data-theme="light"] {
+  --bg: #f6f7f9; --surface: #ffffff; --surface-2: #f0f2f5;
+  --border: #e2e5ea; --text: #16181d; --muted: #6b7280;
+  --accent: #2563eb; --accent-text: #fff;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+.tiny { font-size: 12px; }
+.error { color: var(--danger); font-size: 13px; margin: 8px 0 0; }
+
+.screen { min-height: 100dvh; }
+.center { display: grid; place-items: center; padding: 24px; }
+.spinner {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+}
+.card h3 { margin: 0 0 6px; font-size: 15px; }
+.auth-card { width: 100%; max-width: 380px; text-align: center; }
+.auth-card h1 { margin: 8px 0 4px; font-size: 22px; }
+.logo { font-size: 40px; line-height: 1; }
+.logo-sm { font-size: 22px; }
+
+.btn {
+  font: inherit; cursor: pointer; border-radius: 9px; padding: 9px 14px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  transition: filter .15s, opacity .15s;
+}
+.btn:hover { filter: brightness(1.15); }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.btn-ghost { background: transparent; }
+.btn-block { width: 100%; margin-top: 12px; }
+.btn-sm { padding: 6px 10px; font-size: 13px; }
+.btn-icon { padding: 7px 9px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+#btn-google { display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+.field { display: block; text-align: left; margin-top: 12px; }
+.field > span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 5px; }
+input, select {
+  font: inherit; width: 100%; padding: 9px 11px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+}
+input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.stack { display: flex; flex-direction: column; }
+.row-form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.row-form input[type="text"] { flex: 1 1 200px; }
+.row-form .qty { flex: 0 0 90px; }
+.row-form select { flex: 0 0 auto; width: auto; }
+.row-form .btn { flex: 0 0 auto; }
+
+.tabs { display: flex; gap: 4px; background: var(--surface-2); padding: 4px; border-radius: 10px; margin: 16px 0 4px; }
+.tab { flex: 1; font: inherit; padding: 7px; border: 0; border-radius: 7px; background: transparent; color: var(--muted); cursor: pointer; }
+.tab.active { background: var(--surface); color: var(--text); }
+
+.topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 10;
+  padding-top: max(12px, env(safe-area-inset-top));
+}
+.topbar-left { display: flex; align-items: center; gap: 10px; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.avatar {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 600; font-size: 14px; color: #fff;
+}
+
+.nav {
+  display: flex; gap: 4px; padding: 10px 16px; overflow-x: auto;
+  border-bottom: 1px solid var(--border); background: var(--surface);
+  position: sticky; top: 57px; z-index: 9;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar { display: none; }
+.nav-btn {
+  font: inherit; white-space: nowrap; cursor: pointer; padding: 7px 14px;
+  border-radius: 999px; border: 1px solid transparent; background: transparent; color: var(--muted);
+}
+.nav-btn.active { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+
+main { max-width: 760px; margin: 0 auto; padding: 20px 16px 80px; }
+.view-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+h2 { font-size: 20px; margin: 0 0 4px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 18px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.stat .n { font-size: 26px; font-weight: 700; line-height: 1.1; }
+.stat .l { font-size: 13px; color: var(--muted); }
+
+.group-title { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 20px 0 8px; }
+.item {
+  display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 8px;
+}
+.item input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--accent); }
+.item .grow { flex: 1; min-width: 0; }
+.item .title { overflow: hidden; text-overflow: ellipsis; }
+.item.done .title { text-decoration: line-through; color: var(--muted); }
+.item .meta { font-size: 12px; color: var(--muted); }
+.item .del { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
+.item .del:hover { color: var(--danger); }
+.chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+.empty { color: var(--muted); font-size: 14px; padding: 14px 0; }
+
+.invite-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 20px; letter-spacing: .18em; font-weight: 700;
+  background: var(--surface-2); border: 1px dashed var(--border);
+  padding: 7px 14px; border-radius: 9px;
+}
+.member-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.member-row:last-child { border-bottom: 0; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  background: var(--text); color: var(--bg); padding: 9px 16px;
+  border-radius: 999px; font-size: 14px; z-index: 100;
+}
+
+/* calendar */
+.cal-nav { display: flex; gap: 4px; }
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 16px 0 20px;
+}
+.cal-dow {
+  text-align: center; font-size: 11px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted); padding: 4px 0;
+}
+.cal-day {
+  min-height: 62px; padding: 6px 7px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  cursor: pointer; font: inherit; color: var(--text); text-align: left;
+  display: flex; flex-direction: column; gap: 2px; overflow: hidden;
+  transition: background .12s, border-color .12s;
+}
+.cal-day:hover { border-color: var(--accent); }
+.cal-day.other { opacity: .45; }
+.cal-day.today { border-color: var(--accent); }
+.cal-day.selected { background: var(--accent); color: var(--accent-text); border-color: transparent; }
+.cal-day .num { font-size: 13px; font-weight: 600; line-height: 1.2; }
+.cal-day .cal-event { font-size: 10px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-day.selected .cal-event,
+.cal-day.selected .more { color: var(--accent-text); opacity: .85; }
+.cal-day .more { font-size: 10px; color: var(--muted); }
+.cal-day.has-events .num::after {
+  content: ""; display: inline-block; width: 5px; height: 5px;
+  border-radius: 50%; background: currentColor; opacity: .55;
+  margin-left: 5px; vertical-align: middle;
+}
+.cal-day.selected.has-events .num::after { background: var(--accent-text); opacity: .9; }
+
+/* meals */
+.meal-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 8px;
+  cursor: pointer; text-align: left; width: 100%; font: inherit; color: var(--text);
+  transition: border-color .12s;
+}
+.meal-row:hover { border-color: var(--accent); }
+.meal-row.today { border-color: var(--accent); }
+.meal-row .day {
+  flex: 0 0 64px; font-size: 12px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.meal-row .meal { flex: 1; min-width: 0; }
+.meal-row .meal .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meal-row .meal .empty { padding: 0; color: var(--muted); font-size: 14px; }
+.meal-row .cook { font-size: 12px; color: var(--muted); }
+.meal-row a { color: var(--accent); }
+
+/* messages */
+.msg {
+  padding: 11px 14px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 8px;
+}
+.msg .head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 13px; }
+.msg .head .name { font-weight: 600; }
+.msg .head .time { color: var(--muted); font-size: 12px; }
+.msg .head .del { margin-left: auto; background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; }
+.msg .head .del:hover { color: var(--danger); }
+.msg .body { font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
+
+.form-actions { display: flex; gap: 8px; margin-top: 14px; }
+.form-actions .danger { color: var(--danger); margin-left: auto; }
+
+#upnext-list .upnext-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+}
+#upnext-list .upnext-row:last-child { border-bottom: 0; }
+#upnext-list .when { flex: 0 0 68px; font-size: 12px; color: var(--muted); font-weight: 600; }
+</style>
 </head>
 <body>
 
-<!-- ── LOADING ─────────────────────────────────────────── -->
 <div id="screen-loading" class="screen center">
   <div class="spinner"></div>
 </div>
 
-<!-- ── SIGN IN ─────────────────────────────────────────── -->
 <div id="screen-signin" class="screen center hidden">
   <div class="card auth-card">
     <div class="logo">🏡</div>
@@ -34,18 +250,15 @@
   </div>
 </div>
 
-<!-- ── ONBOARDING ──────────────────────────────────────── -->
 <div id="screen-onboarding" class="screen center hidden">
   <div class="card auth-card">
     <div class="logo">🏡</div>
     <h1 id="ob-title">Welcome</h1>
     <p class="muted" id="ob-sub">Create a family or join one with an invite code.</p>
-
     <div class="tabs">
       <button class="tab active" data-tab="create">Create</button>
       <button class="tab" data-tab="join">Join</button>
     </div>
-
     <form id="form-create" class="stack">
       <label class="field">
         <span>Family name</span>
@@ -57,7 +270,6 @@
       </label>
       <button class="btn btn-primary btn-block" type="submit">Create family</button>
     </form>
-
     <form id="form-join" class="stack hidden">
       <label class="field">
         <span>Invite code</span>
@@ -70,13 +282,11 @@
       </label>
       <button class="btn btn-primary btn-block" type="submit">Join family</button>
     </form>
-
     <p id="ob-error" class="error hidden"></p>
     <button id="btn-signout-ob" class="btn btn-ghost btn-block">Sign out</button>
   </div>
 </div>
 
-<!-- ── APP ─────────────────────────────────────────────── -->
 <div id="screen-app" class="screen hidden">
   <header class="topbar">
     <div class="topbar-left">
@@ -104,7 +314,6 @@
   </nav>
 
   <main>
-    <!-- HOME -->
     <section class="view" data-view="home">
       <h2 id="greeting">Hello</h2>
       <p class="muted" id="today"></p>
@@ -115,7 +324,6 @@
       </div>
     </section>
 
-    <!-- CALENDAR -->
     <section class="view hidden" data-view="calendar">
       <div class="view-head">
         <h2 id="cal-title">Month</h2>
@@ -126,7 +334,6 @@
         </div>
       </div>
       <div class="cal-grid" id="cal-grid"></div>
-
       <div id="cal-day">
         <div class="group-title" id="cal-day-title"></div>
         <div id="cal-events"></div>
@@ -139,7 +346,6 @@
       </div>
     </section>
 
-    <!-- MEALS -->
     <section class="view hidden" data-view="meals">
       <div class="view-head">
         <h2 id="meals-title">This week</h2>
@@ -150,7 +356,6 @@
         </div>
       </div>
       <div id="meals-list"></div>
-
       <form id="form-meal" class="card stack hidden">
         <h3 id="meal-form-title">Add meal</h3>
         <input type="hidden" id="meal-id">
@@ -175,7 +380,6 @@
       </form>
     </section>
 
-    <!-- SHOPPING -->
     <section class="view hidden" data-view="shopping">
       <div class="view-head">
         <h2>Shopping list</h2>
@@ -198,7 +402,6 @@
       <div id="shopping-list"></div>
     </section>
 
-    <!-- TASKS -->
     <section class="view hidden" data-view="tasks">
       <div class="view-head"><h2>Tasks &amp; chores</h2></div>
       <form id="form-task" class="row-form">
@@ -210,7 +413,6 @@
       <div id="task-list"></div>
     </section>
 
-    <!-- MESSAGES -->
     <section class="view hidden" data-view="messages">
       <div class="view-head"><h2>Message board</h2></div>
       <form id="form-message" class="row-form">
@@ -220,7 +422,6 @@
       <div id="message-list"></div>
     </section>
 
-    <!-- FAMILY -->
     <section class="view hidden" data-view="family">
       <div class="view-head"><h2>Family</h2></div>
       <div class="card">
@@ -243,6 +444,848 @@
 
 <div id="toast" class="toast hidden"></div>
 
-<script type="module" src="js/app.js"></script>
+<script type="module">
+/* ══════════════════════════════════════════════════════════
+   Family Hub — single-file app
+   Firebase Auth + Firestore + PWA manifest (generated at runtime)
+   ══════════════════════════════════════════════════════════ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, onAuthStateChanged,
+  signInWithPopup, signInWithRedirect, signOut
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import {
+  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, addDoc,
+  collection, query, where, orderBy, limit, onSnapshot,
+  serverTimestamp, writeBatch
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+/* ── Firebase config ─────────────────────────────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyD2aLkvEVNzJAlqmSqq46wz9anLfk6yb08",
+  authDomain: "family-site-429ed.firebaseapp.com",
+  projectId: "family-site-429ed",
+  storageBucket: "family-site-429ed.firebasestorage.app",
+  messagingSenderId: "918539905315",
+  appId: "1:918539905315:web:5e011323a03d627f290496"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
+/* ── PWA manifest (generated at runtime) ─────────────── */
+(function injectManifest() {
+  const ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient></defs>
+    <rect width="512" height="512" rx="96" fill="url(#g)"/>
+    <path fill="#fff" d="M256 96 96 224v176a24 24 0 0 0 24 24h96V320h80v104h96a24 24 0 0 0 24-24V224z"/>
+    <rect x="236" y="336" width="40" height="88" fill="#4f8cff" rx="4"/>
+  </svg>`;
+  const iconUrl = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(ICON_SVG);
+
+  const manifest = {
+    name: "Family Hub",
+    short_name: "Family",
+    description: "Private dashboard for the family.",
+    start_url: "./",
+    scope: "./",
+    display: "standalone",
+    orientation: "portrait-primary",
+    background_color: "#0f1115",
+    theme_color: "#4f8cff",
+    icons: [
+      { src: iconUrl, sizes: "any", type: "image/svg+xml", purpose: "any" },
+      { src: iconUrl, sizes: "any", type: "image/svg+xml", purpose: "maskable" }
+    ]
+  };
+
+  const blob = new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" });
+  const link = document.createElement("link");
+  link.rel = "manifest";
+  link.href = URL.createObjectURL(blob);
+  document.head.appendChild(link);
+
+  const apple = document.createElement("link");
+  apple.rel = "apple-touch-icon";
+  apple.href = iconUrl;
+  document.head.appendChild(apple);
+})();
+
+/* ── helpers ─────────────────────────────────────────── */
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+const COLORS = ["#ef4444","#f97316","#eab308","#22c55e","#14b8a6","#3b82f6","#8b5cf6","#ec4899"];
+const pickColor = () => COLORS[Math.floor(Math.random() * COLORS.length)];
+const initials = (n) => (n || "?").trim().slice(0, 1).toUpperCase();
+
+function makeCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "";
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  for (const b of bytes) out += alphabet[b % alphabet.length];
+  return out;
+}
+
+const ymd = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+const parseYmd = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+const todayYmd = () => ymd(new Date());
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const weekStart = (d) => {
+  const x = new Date(d);
+  const dow = x.getDay();
+  x.setDate(x.getDate() + (dow === 0 ? -6 : 1 - dow));
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
+function relTime(ts) {
+  if (!ts) return "";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = $("#toast");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("hidden"), 2200);
+}
+
+async function copy(text, label) {
+  try { await navigator.clipboard.writeText(text); toast(`${label} copied`); }
+  catch { prompt("Copy this:", text); }
+}
+
+/* ── state ───────────────────────────────────────────── */
+const state = {
+  user: null, familyId: null, family: null, member: null,
+  members: [], shopping: [], tasks: [], events: [], meals: [], messages: [],
+  view: "home",
+  calMonth: null, calSelected: null,
+  mealsWeek: null, editingMealId: null
+};
+let unsubs = [];
+function clearSubs() {
+  unsubs.forEach((u) => { try { u(); } catch {} });
+  unsubs = [];
+}
+
+/* ── screens ─────────────────────────────────────────── */
+function show(name) {
+  ["loading", "signin", "onboarding", "app"].forEach((s) =>
+    $(`#screen-${s}`).classList.toggle("hidden", s !== name));
+}
+const showError = (sel, msg) => {
+  const el = $(sel);
+  el.textContent = msg || "";
+  el.classList.toggle("hidden", !msg);
+};
+
+/* ── theme ───────────────────────────────────────────── */
+const THEME_KEY = "fh:theme";
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  $("#btn-theme").textContent = t === "dark" ? "🌙" : "☀️";
+  localStorage.setItem(THEME_KEY, t);
+}
+applyTheme(localStorage.getItem(THEME_KEY) ||
+  (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"));
+$("#btn-theme").onclick = () =>
+  applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark");
+
+/* ── auth ────────────────────────────────────────────── */
+const provider = new GoogleAuthProvider();
+
+$("#btn-google").onclick = async () => {
+  showError("#signin-error", "");
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    if (["auth/popup-blocked", "auth/popup-closed-by-user",
+         "auth/operation-not-supported-in-this-environment"].includes(err.code)) {
+      try { await signInWithRedirect(auth, provider); return; } catch {}
+    }
+    showError("#signin-error",
+      err.code === "auth/unauthorized-domain"
+        ? "This domain isn't authorized in Firebase Auth settings."
+        : err.message);
+  }
+};
+
+const doSignOut = async () => { clearSubs(); await signOut(auth); };
+$("#btn-signout").onclick = doSignOut;
+$("#btn-signout-ob").onclick = doSignOut;
+
+onAuthStateChanged(auth, async (user) => {
+  clearSubs();
+  state.user = user;
+
+  if (!user) {
+    state.familyId = state.family = state.member = null;
+    show("signin");
+    return;
+  }
+
+  show("loading");
+  const snap = await getDoc(doc(db, "users", user.uid));
+  const familyId = snap.exists() ? snap.data().familyId : null;
+
+  if (!familyId) {
+    const code = new URLSearchParams(location.search).get("join");
+    if (code) {
+      switchTab("join");
+      $("#join-code").value = code.toUpperCase().slice(0, 8);
+      $("#join-display").value = user.displayName?.split(" ")[0] || "";
+    }
+    show("onboarding");
+    return;
+  }
+
+  await enterFamily(familyId);
+});
+
+/* ── onboarding ──────────────────────────────────────── */
+function switchTab(name) {
+  $$(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+  $("#form-create").classList.toggle("hidden", name !== "create");
+  $("#form-join").classList.toggle("hidden", name !== "join");
+}
+$$(".tab").forEach((t) => (t.onclick = () => switchTab(t.dataset.tab)));
+
+async function createFamily(familyName, displayName) {
+  const uid = state.user.uid;
+  const familyRef = doc(collection(db, "families"));
+  const fid = familyRef.id;
+
+  await setDoc(familyRef, { name: familyName, ownerUid: uid, createdAt: serverTimestamp() });
+  await setDoc(doc(db, "families", fid, "members", uid), {
+    displayName, email: state.user.email || "",
+    role: "admin", color: pickColor(), joinedAt: serverTimestamp()
+  });
+  await setDoc(doc(db, "users", uid), { familyId: fid, displayName });
+  return fid;
+}
+
+async function joinFamily(code, displayName) {
+  const uid = state.user.uid;
+  const inviteSnap = await getDoc(doc(db, "invites", code));
+  if (!inviteSnap.exists()) throw new Error("That invite code doesn't exist.");
+  const { familyId } = inviteSnap.data();
+
+  await setDoc(doc(db, "families", familyId, "members", uid), {
+    displayName, email: state.user.email || "",
+    role: "adult", color: pickColor(),
+    inviteCode: code,
+    joinedAt: serverTimestamp()
+  });
+  await setDoc(doc(db, "users", uid), { familyId, displayName });
+  return familyId;
+}
+
+$("#form-create").onsubmit = async (e) => {
+  e.preventDefault();
+  showError("#ob-error", "");
+  const btn = e.submitter; btn.disabled = true;
+  try {
+    const fid = await createFamily($("#create-name").value.trim(), $("#create-display").value.trim());
+    await enterFamily(fid);
+  } catch (err) { showError("#ob-error", err.message); btn.disabled = false; }
+};
+
+$("#form-join").onsubmit = async (e) => {
+  e.preventDefault();
+  showError("#ob-error", "");
+  const btn = e.submitter; btn.disabled = true;
+  try {
+    const fid = await joinFamily($("#join-code").value.trim().toUpperCase(), $("#join-display").value.trim());
+    history.replaceState({}, "", location.pathname);
+    await enterFamily(fid);
+  } catch (err) { showError("#ob-error", err.message); btn.disabled = false; }
+};
+
+/* ── enter family ────────────────────────────────────── */
+async function enterFamily(fid) {
+  state.familyId = fid;
+  show("loading");
+
+  const [familySnap, memberSnap] = await Promise.all([
+    getDoc(doc(db, "families", fid)),
+    getDoc(doc(db, "families", fid, "members", state.user.uid))
+  ]);
+
+  if (!familySnap.exists() || !memberSnap.exists()) {
+    await setDoc(doc(db, "users", state.user.uid), { familyId: null });
+    show("onboarding");
+    return;
+  }
+
+  state.family = { id: fid, ...familySnap.data() };
+  state.member = memberSnap.data();
+
+  const now = new Date();
+  state.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  state.calSelected = todayYmd();
+  state.mealsWeek = weekStart(now);
+
+  const savedInvite = localStorage.getItem(`fh:invite:${fid}`);
+  if (savedInvite) state._inviteCode = savedInvite;
+
+  renderShell();
+  show("app");
+  subscribe(fid);
+}
+
+function subscribe(fid) {
+  const famCol = collection(db, "families", fid);
+
+  unsubs.push(onSnapshot(collection(famCol, "members"), (snap) => {
+    state.members = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+    renderMembers(); renderStats();
+    renderTaskAssigneeOptions(); renderMealCookOptions();
+    renderCalendar(); renderMeals(); renderMessages();
+  }, (e) => console.error("members:", e)));
+
+  unsubs.push(onSnapshot(query(collection(famCol, "shoppingItems"), orderBy("createdAt", "desc")), (snap) => {
+    state.shopping = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderShopping(); renderStats();
+  }, (e) => console.error("shopping:", e)));
+
+  unsubs.push(onSnapshot(query(collection(famCol, "tasks"), orderBy("createdAt", "desc")), (snap) => {
+    state.tasks = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderTasks(); renderStats(); renderUpNext();
+  }, (e) => console.error("tasks:", e)));
+
+  unsubs.push(onSnapshot(collection(famCol, "events"), (snap) => {
+    state.events = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderCalendar(); renderStats(); renderUpNext();
+  }, (e) => console.error("events:", e)));
+
+  unsubs.push(onSnapshot(collection(famCol, "meals"), (snap) => {
+    state.meals = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    renderMeals(); renderStats(); renderUpNext();
+  }, (e) => console.error("meals:", e)));
+
+  unsubs.push(onSnapshot(
+    query(collection(famCol, "messages"), orderBy("createdAt", "desc"), limit(200)),
+    (snap) => {
+      state.messages = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderMessages(); renderStats();
+    }, (e) => console.error("messages:", e)));
+}
+
+/* ── shell / stats ───────────────────────────────────── */
+function renderShell() {
+  $("#family-name").textContent = state.family.name;
+  const n = state.members.length || 1;
+  $("#family-sub").textContent = `${n} member${n === 1 ? "" : "s"}`;
+
+  const av = $("#me-avatar");
+  av.textContent = initials(state.member.displayName);
+  av.style.background = state.member.color || "#4f8cff";
+  av.title = state.member.displayName;
+
+  const now = new Date();
+  const h = now.getHours();
+  const part = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  $("#greeting").textContent = `${part}, ${state.member.displayName}!`;
+  $("#today").textContent = now.toLocaleDateString(undefined, {
+    weekday: "long", month: "long", day: "numeric", year: "numeric"
+  });
+
+  renderInviteCode();
+}
+
+function renderStats() {
+  const openShop = state.shopping.filter((i) => !i.checked).length;
+  const openTasks = state.tasks.filter((t) => !t.done).length;
+  const mine = state.tasks.filter((t) => !t.done && t.assigneeUid === state.user.uid).length;
+  const upcoming = state.events.filter((e) => e.date >= todayYmd()).length;
+
+  $("#stats").innerHTML = [
+    ["To buy", openShop],
+    ["Open tasks", openTasks],
+    ["Assigned to me", mine],
+    ["Upcoming events", upcoming]
+  ].map(([l, n]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+}
+
+function memberName(uid) {
+  if (uid === state.user.uid) return state.member?.displayName || "You";
+  return state.members.find((m) => m.uid === uid)?.displayName || "Someone";
+}
+
+function renderUpNext() {
+  const card = $("#home-upnext");
+  const list = $("#upnext-list");
+  const today = todayYmd();
+
+  const items = [];
+  state.events
+    .filter((e) => e.date >= today)
+    .sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || "")))
+    .slice(0, 4)
+    .forEach((e) => items.push({
+      when: e.date === today ? "Today" : parseYmd(e.date).toLocaleDateString(undefined, { weekday: "short" }),
+      text: e.title + (e.time ? ` · ${e.time}` : "")
+    }));
+
+  const todayMeal = state.meals.find((m) => m.date === today);
+  if (todayMeal) items.unshift({ when: "Dinner", text: todayMeal.title });
+
+  if (!items.length) { card.hidden = true; return; }
+  card.hidden = false;
+  list.innerHTML = items.map((i) =>
+    `<div class="upnext-row"><span class="when">${esc(i.when)}</span><span>${esc(i.text)}</span></div>`
+  ).join("");
+}
+
+/* ── shopping ────────────────────────────────────────── */
+function renderShopping() {
+  const list = $("#shopping-list");
+  if (!state.shopping.length) { list.innerHTML = `<p class="empty">Nothing on the list yet.</p>`; return; }
+
+  const open = state.shopping.filter((i) => !i.checked);
+  const done = state.shopping.filter((i) => i.checked);
+  const groups = {};
+  open.forEach((i) => (groups[i.category || "Other"] ||= []).push(i));
+
+  let html = "";
+  for (const [cat, items] of Object.entries(groups).sort()) {
+    html += `<div class="group-title">${esc(cat)} · ${items.length}</div>`;
+    html += items.map(shoppingRow).join("");
+  }
+  if (done.length) {
+    html += `<div class="group-title">Checked · ${done.length}</div>`;
+    html += done.map(shoppingRow).join("");
+  }
+  list.innerHTML = html;
+}
+
+function shoppingRow(i) {
+  return `
+    <div class="item ${i.checked ? "done" : ""}" data-id="${i.id}">
+      <input type="checkbox" ${i.checked ? "checked" : ""} data-act="toggle">
+      <div class="grow">
+        <div class="title">${esc(i.name)}${i.qty ? ` <span class="muted">· ${esc(i.qty)}</span>` : ""}</div>
+        <div class="meta">${esc(memberName(i.createdBy))}</div>
+      </div>
+      <button class="del" data-act="delete" title="Delete">×</button>
+    </div>`;
+}
+
+$("#form-shopping").onsubmit = async (e) => {
+  e.preventDefault();
+  const name = $("#shop-name").value.trim();
+  if (!name) return;
+  const qty = $("#shop-qty").value.trim();
+  const category = $("#shop-cat").value;
+  $("#shop-name").value = ""; $("#shop-qty").value = ""; $("#shop-name").focus();
+  await addDoc(collection(db, "families", state.familyId, "shoppingItems"), {
+    name, qty, category, checked: false,
+    createdBy: state.user.uid, createdAt: serverTimestamp()
+  });
+};
+
+$("#shopping-list").addEventListener("click", async (e) => {
+  const row = e.target.closest(".item"); if (!row) return;
+  const ref = doc(db, "families", state.familyId, "shoppingItems", row.dataset.id);
+  if (e.target.dataset.act === "toggle") await updateDoc(ref, { checked: e.target.checked });
+  else if (e.target.dataset.act === "delete") await deleteDoc(ref);
+});
+
+$("#btn-clear-checked").onclick = async () => {
+  const checked = state.shopping.filter((i) => i.checked);
+  if (!checked.length) return toast("Nothing checked");
+  const batch = writeBatch(db);
+  checked.forEach((i) => batch.delete(doc(db, "families", state.familyId, "shoppingItems", i.id)));
+  await batch.commit();
+  toast(`Cleared ${checked.length} item${checked.length === 1 ? "" : "s"}`);
+};
+
+/* ── tasks ───────────────────────────────────────────── */
+function renderTaskAssigneeOptions() {
+  const sel = $("#task-assignee");
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">Anyone</option>` +
+    state.members.map((m) =>
+      `<option value="${m.uid}">${esc(m.displayName)}${m.uid === state.user.uid ? " (me)" : ""}</option>`
+    ).join("");
+  if (cur) sel.value = cur;
+}
+
+function renderTasks() {
+  const list = $("#task-list");
+  if (!state.tasks.length) { list.innerHTML = `<p class="empty">No tasks yet. Add one above.</p>`; return; }
+  const open = state.tasks.filter((t) => !t.done);
+  const done = state.tasks.filter((t) => t.done);
+  list.innerHTML = open.map(taskRow).join("") +
+    (done.length ? `<div class="group-title">Done · ${done.length}</div>` + done.map(taskRow).join("") : "");
+}
+
+function taskRow(t) {
+  const due = t.dueDate ? parseYmd(t.dueDate).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "";
+  const overdue = t.dueDate && !t.done && t.dueDate < todayYmd();
+  const who = t.assigneeUid ? memberName(t.assigneeUid) : "Anyone";
+  return `
+    <div class="item ${t.done ? "done" : ""}" data-id="${t.id}">
+      <input type="checkbox" ${t.done ? "checked" : ""} data-act="toggle">
+      <div class="grow">
+        <div class="title">${esc(t.title)}</div>
+        <div class="meta">${esc(who)}${due ? ` · <span style="color:${overdue ? "var(--danger)" : "inherit"}">${due}</span>` : ""}</div>
+      </div>
+      <button class="del" data-act="delete" title="Delete">×</button>
+    </div>`;
+}
+
+$("#form-task").onsubmit = async (e) => {
+  e.preventDefault();
+  const title = $("#task-title").value.trim(); if (!title) return;
+  const assigneeUid = $("#task-assignee").value || null;
+  const dueDate = $("#task-due").value || null;
+  $("#task-title").value = ""; $("#task-due").value = ""; $("#task-title").focus();
+  await addDoc(collection(db, "families", state.familyId, "tasks"), {
+    title, assigneeUid, dueDate, done: false,
+    createdBy: state.user.uid, createdAt: serverTimestamp()
+  });
+};
+
+$("#task-list").addEventListener("click", async (e) => {
+  const row = e.target.closest(".item"); if (!row) return;
+  const ref = doc(db, "families", state.familyId, "tasks", row.dataset.id);
+  if (e.target.dataset.act === "toggle") await updateDoc(ref, { done: e.target.checked });
+  else if (e.target.dataset.act === "delete") await deleteDoc(ref);
+});
+
+/* ── calendar ────────────────────────────────────────── */
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function renderCalendar() {
+  if (!state.calMonth) return;
+  const year = state.calMonth.getFullYear();
+  const month = state.calMonth.getMonth();
+  const today = todayYmd();
+
+  $("#cal-title").textContent = state.calMonth.toLocaleDateString(undefined, {
+    month: "long", year: "numeric"
+  });
+
+  const first = new Date(year, month, 1);
+  const startOffset = first.getDay();
+  const gridStart = addDays(first, -startOffset);
+
+  let html = DOW.map((d) => `<div class="cal-dow">${d}</div>`).join("");
+
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(gridStart, i);
+    const key = ymd(d);
+    const isOther = d.getMonth() !== month;
+    const isToday = key === today;
+    const isSelected = key === state.calSelected;
+    const dayEvents = state.events
+      .filter((e) => e.date === key)
+      .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+    const shown = dayEvents.slice(0, 2).map((e) =>
+      `<div class="cal-event">${esc(e.time ? `${e.time} ` : "")}${esc(e.title)}</div>`
+    ).join("");
+    const more = dayEvents.length > 2 ? `<div class="more">+${dayEvents.length - 2}</div>` : "";
+
+    html += `
+      <button class="cal-day ${isOther ? "other" : ""} ${isToday ? "today" : ""} ${isSelected ? "selected" : ""} ${dayEvents.length ? "has-events" : ""}"
+              data-date="${key}">
+        <div class="num">${d.getDate()}</div>
+        ${shown}${more}
+      </button>`;
+  }
+
+  $("#cal-grid").innerHTML = html;
+  renderCalendarDay();
+}
+
+function renderCalendarDay() {
+  const key = state.calSelected; if (!key) return;
+  const d = parseYmd(key);
+  $("#cal-day-title").textContent = d.toLocaleDateString(undefined, {
+    weekday: "long", month: "long", day: "numeric"
+  });
+
+  const dayEvents = state.events
+    .filter((e) => e.date === key)
+    .sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+  $("#cal-events").innerHTML = dayEvents.length
+    ? dayEvents.map((e) => `
+        <div class="item" data-id="${e.id}">
+          <div class="grow">
+            <div class="title">${esc(e.title)}</div>
+            <div class="meta">${e.time ? esc(e.time) + " · " : ""}${esc(e.location || memberName(e.createdBy))}</div>
+          </div>
+          <button class="del" data-act="delete" title="Delete">×</button>
+        </div>`).join("")
+    : `<p class="empty">No events on this day.</p>`;
+}
+
+$("#cal-grid").addEventListener("click", (e) => {
+  const btn = e.target.closest(".cal-day"); if (!btn) return;
+  state.calSelected = btn.dataset.date;
+  renderCalendar();
+});
+
+$("#cal-prev").onclick = () => {
+  state.calMonth = new Date(state.calMonth.getFullYear(), state.calMonth.getMonth() - 1, 1);
+  renderCalendar();
+};
+$("#cal-next").onclick = () => {
+  state.calMonth = new Date(state.calMonth.getFullYear(), state.calMonth.getMonth() + 1, 1);
+  renderCalendar();
+};
+$("#cal-today").onclick = () => {
+  const now = new Date();
+  state.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  state.calSelected = todayYmd();
+  renderCalendar();
+};
+
+$("#form-event").onsubmit = async (e) => {
+  e.preventDefault();
+  const title = $("#ev-title").value.trim(); if (!title) return;
+  const time = $("#ev-time").value || null;
+  const location = $("#ev-location").value.trim();
+  const date = state.calSelected;
+  $("#ev-title").value = ""; $("#ev-time").value = ""; $("#ev-location").value = ""; $("#ev-title").focus();
+
+  await addDoc(collection(db, "families", state.familyId, "events"), {
+    title, time, location, date,
+    createdBy: state.user.uid, createdAt: serverTimestamp()
+  });
+};
+
+$("#cal-events").addEventListener("click", async (e) => {
+  const row = e.target.closest(".item"); if (!row) return;
+  if (e.target.dataset.act === "delete") {
+    await deleteDoc(doc(db, "families", state.familyId, "events", row.dataset.id));
+  }
+});
+
+/* ── meals ───────────────────────────────────────────── */
+function renderMealCookOptions() {
+  const sel = $("#meal-cook");
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">Unassigned</option>` +
+    state.members.map((m) =>
+      `<option value="${m.uid}">${esc(m.displayName)}${m.uid === state.user.uid ? " (me)" : ""}</option>`
+    ).join("");
+  if (cur) sel.value = cur;
+}
+
+function renderMeals() {
+  if (!state.mealsWeek) return;
+  const weekStartDate = state.mealsWeek;
+  const weekEndDate = addDays(weekStartDate, 6);
+  const today = todayYmd();
+
+  const fmt = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  $("#meals-title").textContent = `${fmt(weekStartDate)} – ${fmt(weekEndDate)}`;
+
+  const rows = [];
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(weekStartDate, i);
+    const key = ymd(d);
+    const meal = state.meals.find((m) => m.date === key);
+    const dayLabel = d.toLocaleDateString(undefined, { weekday: "short" }) + " " + d.getDate();
+    const isToday = key === today;
+
+    const mealContent = meal
+      ? `<div class="title">${esc(meal.title)}</div>
+         <div class="cook">${meal.cookUid ? esc(memberName(meal.cookUid)) : "Unassigned"}${meal.recipeUrl ? ` · <a href="${esc(meal.recipeUrl)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">recipe</a>` : ""}</div>`
+      : `<div class="empty">Add a meal…</div>`;
+
+    rows.push(`
+      <button class="meal-row ${isToday ? "today" : ""}" data-date="${key}">
+        <div class="day">${esc(dayLabel)}</div>
+        <div class="meal">${mealContent}</div>
+      </button>`);
+  }
+
+  $("#meals-list").innerHTML = rows.join("");
+}
+
+$("#meals-list").addEventListener("click", (e) => {
+  const row = e.target.closest(".meal-row"); if (!row) return;
+  openMealForm(row.dataset.date);
+});
+
+function openMealForm(date) {
+  const existing = state.meals.find((m) => m.date === date);
+  state.editingMealId = existing ? existing.id : null;
+
+  $("#meal-date").value = date;
+  $("#meal-id").value = existing ? existing.id : "";
+  $("#meal-title").value = existing ? existing.title : "";
+  $("#meal-cook").value = existing?.cookUid || "";
+  $("#meal-url").value = existing?.recipeUrl || "";
+
+  $("#meal-form-title").textContent = existing
+    ? `Edit meal — ${parseYmd(date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}`
+    : `Add meal — ${parseYmd(date).toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}`;
+
+  $("#meal-delete").classList.toggle("hidden", !existing);
+  $("#form-meal").classList.remove("hidden");
+  $("#meal-title").focus();
+}
+
+$("#meal-cancel").onclick = () => {
+  $("#form-meal").classList.add("hidden");
+  state.editingMealId = null;
+};
+
+$("#form-meal").onsubmit = async (e) => {
+  e.preventDefault();
+  const title = $("#meal-title").value.trim(); if (!title) return;
+  const date = $("#meal-date").value;
+  const cookUid = $("#meal-cook").value || null;
+  const recipeUrl = $("#meal-url").value.trim() || null;
+
+  if (state.editingMealId) {
+    await updateDoc(doc(db, "families", state.familyId, "meals", state.editingMealId), {
+      title, cookUid, recipeUrl, date
+    });
+  } else {
+    await addDoc(collection(db, "families", state.familyId, "meals"), {
+      title, cookUid, recipeUrl, date,
+      createdBy: state.user.uid, createdAt: serverTimestamp()
+    });
+  }
+
+  $("#form-meal").classList.add("hidden");
+  state.editingMealId = null;
+  toast("Meal saved");
+};
+
+$("#meal-delete").onclick = async () => {
+  if (!state.editingMealId) return;
+  await deleteDoc(doc(db, "families", state.familyId, "meals", state.editingMealId));
+  $("#form-meal").classList.add("hidden");
+  state.editingMealId = null;
+  toast("Meal removed");
+};
+
+$("#meals-prev").onclick = () => { state.mealsWeek = addDays(state.mealsWeek, -7); renderMeals(); };
+$("#meals-next").onclick = () => { state.mealsWeek = addDays(state.mealsWeek, 7); renderMeals(); };
+$("#meals-this").onclick = () => { state.mealsWeek = weekStart(new Date()); renderMeals(); };
+
+/* ── messages ────────────────────────────────────────── */
+function renderMessages() {
+  const list = $("#message-list");
+  if (!state.messages.length) { list.innerHTML = `<p class="empty">No messages yet. Say hi.</p>`; return; }
+
+  list.innerHTML = state.messages.map((m) => {
+    const mine = m.authorUid === state.user.uid;
+    return `
+      <div class="msg" data-id="${m.id}">
+        <div class="head">
+          <span class="name">${esc(memberName(m.authorUid))}</span>
+          <span class="time">${esc(relTime(m.createdAt))}</span>
+          ${mine ? `<button class="del" data-act="delete" title="Delete">×</button>` : ""}
+        </div>
+        <div class="body">${esc(m.text)}</div>
+      </div>`;
+  }).join("");
+}
+
+$("#form-message").onsubmit = async (e) => {
+  e.preventDefault();
+  const text = $("#msg-text").value.trim(); if (!text) return;
+  $("#msg-text").value = "";
+  await addDoc(collection(db, "families", state.familyId, "messages"), {
+    text, authorUid: state.user.uid, createdAt: serverTimestamp()
+  });
+};
+
+$("#message-list").addEventListener("click", async (e) => {
+  const row = e.target.closest(".msg"); if (!row) return;
+  if (e.target.dataset.act === "delete") {
+    await deleteDoc(doc(db, "families", state.familyId, "messages", row.dataset.id));
+  }
+});
+
+/* ── members ─────────────────────────────────────────── */
+function renderMembers() {
+  $("#member-list").innerHTML = state.members.map((m) => `
+    <div class="member-row">
+      <div class="avatar" style="background:${m.color || "#4f8cff"}">${esc(initials(m.displayName))}</div>
+      <div class="grow">
+        <div>${esc(m.displayName)}${m.uid === state.user.uid ? " <span class='muted tiny'>(you)</span>" : ""}</div>
+        <div class="meta muted tiny">${esc(m.email || "")}</div>
+      </div>
+      <span class="chip">${esc(m.role || "member")}</span>
+    </div>`).join("");
+}
+
+/* ── invites ─────────────────────────────────────────── */
+async function renderInviteCode() {
+  const el = $("#invite-code");
+  if (state.member?.role !== "admin") {
+    el.textContent = "admin only";
+    $("#btn-new-invite").disabled = true;
+    return;
+  }
+  $("#btn-new-invite").disabled = false;
+  el.textContent = state._inviteCode || "—";
+}
+
+async function newInvite() {
+  const code = makeCode();
+  await setDoc(doc(db, "invites", code), {
+    familyId: state.familyId,
+    createdBy: state.user.uid,
+    createdAt: serverTimestamp()
+  });
+  state._inviteCode = code;
+  localStorage.setItem(`fh:invite:${state.familyId}`, code);
+  $("#invite-code").textContent = code;
+  toast("New invite code created");
+}
+
+$("#btn-new-invite").onclick = () => newInvite().catch((e) => toast(e.message));
+
+$("#btn-copy-code").onclick = () => {
+  const c = $("#invite-code").textContent;
+  if (c && c !== "—" && c !== "admin only") copy(c, "Code");
+  else toast("Generate a code first");
+};
+
+$("#btn-copy-link").onclick = () => {
+  const c = $("#invite-code").textContent;
+  if (!c || c === "—" || c === "admin only") return toast("Generate a code first");
+  copy(`${location.origin}${location.pathname}?join=${c}`, "Invite link");
+};
+
+/* ── nav ─────────────────────────────────────────────── */
+$$(".nav-btn").forEach((btn) => {
+  btn.onclick = () => {
+    state.view = btn.dataset.view;
+    $$(".nav-btn").forEach((b) => b.classList.toggle("active", b === btn));
+    $$(".view").forEach((v) => v.classList.toggle("hidden", v.dataset.view !== state.view));
+  };
+});
+</script>
 </body>
 </html>
