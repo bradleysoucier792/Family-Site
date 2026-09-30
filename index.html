@@ -735,19 +735,48 @@ $("#form-join").onsubmit = async (e) => {
   } catch (err) { showError("#ob-error", err.message); btn.disabled = false; }
 };
 
+/* ── onboarding bail-out helper ──────────────────────── */
+async function bootToOnboarding(msg) {
+  showError("#ob-error", msg || "");
+  try {
+    if (state.user) {
+      await setDoc(doc(db, "users", state.user.uid), { familyId: null });
+    }
+  } catch {}
+  state.familyId = state.family = state.member = null;
+  state.members = [];
+  show("onboarding");
+}
+
 /* ── enter family ────────────────────────────────────── */
 async function enterFamily(fid) {
   state.familyId = fid;
   show("loading");
 
-  const [familySnap, memberSnap] = await Promise.all([
-    getDoc(doc(db, "families", fid)),
-    getDoc(doc(db, "families", fid, "members", state.user.uid))
-  ]);
+  let familySnap, memberSnap;
+  try {
+    [familySnap, memberSnap] = await Promise.all([
+      getDoc(doc(db, "families", fid)),
+      getDoc(doc(db, "families", fid, "members", state.user.uid))
+    ]);
+  } catch (err) {
+    console.warn("enterFamily read failed:", err);
+
+    if (err?.code === "permission-denied") {
+      // Almost always: we were removed from the family. The family doc
+      // rule requires membership, so a removed user can't read it.
+      await bootToOnboarding("You're no longer a member of that family.");
+    } else {
+      // Transient (offline, etc.). Don't clear familyId so a refresh retries.
+      state.familyId = state.family = state.member = null;
+      showError("#ob-error", "Couldn't load your family. Reload to try again.");
+      show("onboarding");
+    }
+    return;
+  }
 
   if (!familySnap.exists() || !memberSnap.exists()) {
-    await setDoc(doc(db, "users", state.user.uid), { familyId: null });
-    show("onboarding");
+    await bootToOnboarding();
     return;
   }
 
@@ -764,7 +793,7 @@ async function enterFamily(fid) {
   subscribe(fid);
 }
 
-/* ── live subscriptions ─────────────────────────────── */
+/* ── live subscriptions ──────────────────────────────── */
 function subscribe(fid) {
   const famDoc = doc(db, "families", fid);
 
@@ -828,14 +857,11 @@ function subscribe(fid) {
     }, (e) => console.error("messages:", e)));
 }
 
-/* ── kicked out ──────────────────────────────────────── */
+/* ── kicked out (live removal) ───────────────────────── */
 async function kickedOut() {
   clearSubs();
-  try { await setDoc(doc(db, "users", state.user.uid), { familyId: null }); } catch {}
-  state.familyId = state.family = state.member = null;
-  state.members = [];
   toast("You were removed from this family");
-  show("onboarding");
+  await bootToOnboarding("You're no longer a member of that family.");
 }
 
 /* ── shell / stats ───────────────────────────────────── */
@@ -1286,7 +1312,6 @@ function renderMembers() {
   const iAmAdmin = state.member?.role === "admin";
   const ownerUid = state.family?.ownerUid;
 
-  // Hint under the "Members" heading.
   const hint = iAmAdmin
     ? "Change a role with the dropdown. Removing a member kicks them out immediately."
     : "Only admins can change roles or remove members.";
@@ -1295,8 +1320,6 @@ function renderMembers() {
   $("#member-list").innerHTML = state.members.map((m) => {
     const isMe = m.uid === state.user.uid;
     const isOwner = m.uid === ownerUid;
-
-    // The role chip is always shown; the select replaces it when editable.
     const canEditRole = iAmAdmin && !isMe && !isOwner;
 
     let controls;
@@ -1325,7 +1348,6 @@ function renderMembers() {
       </div>`;
   }).join("");
 
-  // Leave-family card: hidden for the owner (they can't leave).
   const iAmOwner = ownerUid === state.user.uid;
   $("#leave-card").classList.toggle("hidden", iAmOwner);
 }
@@ -1343,7 +1365,7 @@ async function changeRole(uid, newRole) {
   } catch (err) {
     console.error("changeRole:", err);
     toast("Failed: " + (err?.message || "unknown error"));
-    renderMembers(); // revert UI
+    renderMembers();
   }
 }
 
@@ -1387,7 +1409,6 @@ async function leaveFamily() {
   }
 }
 
-// Delegated handlers for the member list.
 $("#member-list").addEventListener("change", (e) => {
   const sel = e.target.closest(".role-select");
   if (!sel) return;
